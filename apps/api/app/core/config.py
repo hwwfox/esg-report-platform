@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     object_storage_access_key: str = "minioadmin"
     object_storage_secret_key: str = "minioadmin"
     jwt_secret: str = "local_dev_jwt_secret_change_me"
+    jwt_access_token_expire_minutes: int = 60
+    jwt_refresh_token_expire_minutes: int = 10080
     ai_provider: str = "mock"
     ai_api_base_url: str = "http://localhost:9002"
     log_level: str = "DEBUG"
