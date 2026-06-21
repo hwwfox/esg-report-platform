@@ -45,8 +45,6 @@ jobs:
       DATABASE_URL: postgresql://esg_user:esg_password@localhost:5432/esg_dev
       REDIS_URL: redis://localhost:6379/0
       AI_PROVIDER: mock
-      # AI_API_KEY: mock_key_for_ci_only
-      # JWT_SECRET: ci_jwt_secret_change_in_real_env
       AI_API_KEY: ${{ secrets.AI_API_KEY }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       LOG_LEVEL: INFO
