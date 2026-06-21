@@ -86,19 +86,8 @@ jobs:
       - name: Migration check
         run: bash scripts/check-migrations.sh
 
-      - name: Install root dependencies if package.json exists
-        run: |
-          if [ -f package-lock.json ]; then npm ci; fi
-          if [ -f package.json ] && [ ! -f package-lock.json ]; then npm install; fi
+      - name: Install dependencies
+        run: make install
 
-      - name: Lint if available
-        run: |
-          if grep -q '"lint"' package.json 2>/dev/null; then npm run lint; else echo "No root lint script, skipped"; fi
-
-      - name: Typecheck if available
-        run: |
-          if grep -q '"typecheck"' package.json 2>/dev/null; then npm run typecheck; else echo "No root typecheck script, skipped"; fi
-
-      - name: Test if available
-        run: |
-          if grep -q '"test"' package.json 2>/dev/null; then npm test; else echo "No root test script, skipped"; fi
+      - name: Run local quality gate
+        run: make ci-local
