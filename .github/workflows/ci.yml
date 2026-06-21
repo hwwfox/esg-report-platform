@@ -57,7 +57,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+        # Remove the 'cache: npm' line if no lock file exists
+        #  cache: 'npm'
         continue-on-error: true
 
       - name: Setup Python
