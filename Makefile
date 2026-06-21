@@ -63,10 +63,10 @@ typecheck:
 	@if [ -f apps/web/package.json ]; then cd apps/web && pnpm typecheck; fi
 
 test:
-	pytest apps/api/tests apps/worker/tests apps/ai-gateway/tests || true
+	pytest apps/api/tests apps/worker/tests apps/ai-gateway/tests
 
 test-api:
-	pytest apps/api/tests || true
+	pytest apps/api/tests
 
 test-e2e:
 	@if [ -f apps/web/package.json ]; then cd apps/web && pnpm test:e2e; fi
