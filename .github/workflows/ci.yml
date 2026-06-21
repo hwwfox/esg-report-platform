@@ -40,13 +40,13 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    env:
+    env:  
       APP_ENV: test
       DATABASE_URL: postgresql://esg_user:esg_password@localhost:5432/esg_dev
       REDIS_URL: redis://localhost:6379/0
       AI_PROVIDER: mock
-      AI_API_KEY: ${{ secrets.AI_API_KEY }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}  # pragma: secret-scan-ignore
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}  # pragma: secret-scan-ignore
       LOG_LEVEL: INFO
 
     steps:
