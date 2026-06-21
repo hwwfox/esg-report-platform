@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+grep -v 'pragma: secret-scan-ignore' "$file" | grep -E 'password|secret|key|token' && exit 1
+
 set -euo pipefail
 
 echo "[secret-scan] Checking obvious secrets"
