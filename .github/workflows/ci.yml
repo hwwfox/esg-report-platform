@@ -1,0 +1,103 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  quality-gate:
+    name: quality-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: esg_user
+          POSTGRES_PASSWORD: esg_password
+          POSTGRES_DB: esg_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql://esg_user:esg_password@localhost:5432/esg_dev
+      REDIS_URL: redis://localhost:6379/0
+      AI_PROVIDER: mock
+      AI_API_KEY: mock_key_for_ci_only
+      JWT_SECRET: ci_jwt_secret_change_in_real_env
+      LOG_LEVEL: INFO
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+        continue-on-error: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify repository structure
+        run: |
+          test -f AGENTS.md
+          test -f README.md
+          test -f .env.example
+          test -f docker-compose.dev.yml
+          test -d contracts/openapi
+          test -d db/ddl
+          test -d db/seed
+          test -d docs/dev-tasks
+
+      - name: Secret scan
+        run: bash scripts/check-no-secrets.sh
+
+      - name: OpenAPI and Mock sync check
+        run: bash scripts/check-openapi-mock-sync.sh
+
+      - name: Migration check
+        run: bash scripts/check-migrations.sh
+
+      - name: Install root dependencies if package.json exists
+        run: |
+          if [ -f package-lock.json ]; then npm ci; fi
+          if [ -f package.json ] && [ ! -f package-lock.json ]; then npm install; fi
+
+      - name: Lint if available
+        run: |
+          if grep -q '"lint"' package.json 2>/dev/null; then npm run lint; else echo "No root lint script, skipped"; fi
+
+      - name: Typecheck if available
+        run: |
+          if grep -q '"typecheck"' package.json 2>/dev/null; then npm run typecheck; else echo "No root typecheck script, skipped"; fi
+
+      - name: Test if available
+        run: |
+          if grep -q '"test"' package.json 2>/dev/null; then npm test; else echo "No root test script, skipped"; fi

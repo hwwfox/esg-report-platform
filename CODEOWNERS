@@ -1,0 +1,22 @@
+# Default owners
+* @hwwfox
+
+# Contracts and API
+/contracts/openapi/ @hwwfox
+/contracts/schemas/ @hwwfox
+/contracts/mock-data/ @hwwfox
+
+# Database
+/db/ @hwwfox
+
+# AI prompts and schemas
+/ai/prompts/ @hwwfox
+/ai/schemas/ @hwwfox
+/ai/agent-config/ @hwwfox
+
+# Security-sensitive areas
+/apps/api/src/modules/auth/ @hwwfox
+/apps/api/src/modules/audit/ @hwwfox
+/apps/api/src/middleware/ @hwwfox
+/deploy/ @hwwfox
+.github/workflows/ @hwwfox

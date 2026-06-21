@@ -1,0 +1,6156 @@
+openapi: 3.0.3
+info:
+  title: ESG报告软件 P0 API
+  version: 0.1.0
+  description: ESG报告软件MVP阶段P0接口规格，覆盖多租户、项目、同行报告解析、议题推荐、采集审核、知识库、AI写作校对、导出、AI成本与审计。
+servers:
+- url: /api/v1
+  description: 默认API前缀
+tags:
+- name: 认证与租户
+- name: 企业管理
+- name: 用户与权限
+- name: 报告项目
+- name: 组织架构
+- name: 标准议题指标
+- name: GICS行业
+- name: 同行公司
+- name: 文件
+- name: 同行报告解析
+- name: 异步任务
+- name: 推荐
+- name: 项目议题
+- name: 任务分配
+- name: 部门采集
+- name: 部门审核
+- name: ESG数据
+- name: 知识库
+- name: AI写作
+- name: 来源引用
+- name: AI校对
+- name: 全文校对
+- name: 报告导出
+- name: AI模型与成本
+- name: 审计日志
+paths:
+  /auth/login:
+    post:
+      tags:
+      - 认证与租户
+      summary: 登录
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /auth/me:
+    get:
+      tags:
+      - 认证与租户
+      summary: 获取当前用户
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /auth/switch-tenant:
+    post:
+      tags:
+      - 认证与租户
+      summary: 切换租户
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwitchTenantResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchTenantRequest'
+      security:
+      - bearerAuth: []
+  /enterprises:
+    post:
+      tags:
+      - 企业管理
+      summary: 创建企业
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enterprise'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnterpriseCreateRequest'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - 企业管理
+      summary: 查询企业列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterpriseListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: exchange
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+  /enterprises/{enterprise_id}:
+    parameters:
+    - name: enterprise_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 企业管理
+      summary: 获取企业详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enterprise'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+    patch:
+      tags:
+      - 企业管理
+      summary: 更新企业
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enterprise'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnterpriseCreateRequest'
+      security:
+      - bearerAuth: []
+  /users:
+    post:
+      tags:
+      - 用户与权限
+      summary: 创建用户
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - 用户与权限
+      summary: 查询用户列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: role_code
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: enterprise_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /users/{user_id}/roles:
+    parameters:
+    - name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 用户与权限
+      summary: 分配用户角色
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRolesRequest'
+      security:
+      - bearerAuth: []
+  /projects:
+    post:
+      tags:
+      - 报告项目
+      summary: 创建报告项目
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - 报告项目
+      summary: 查询项目列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: enterprise_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: report_year
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: project_status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/dashboard:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 报告项目
+      summary: 项目工作台
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDashboard'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /enterprises/{enterprise_id}/org-units/tree:
+    parameters:
+    - name: enterprise_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 组织架构
+      summary: 获取企业组织树
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgTreeResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /enterprises/{enterprise_id}/org-units:
+    parameters:
+    - name: enterprise_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 组织架构
+      summary: 创建组织节点
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUnit'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgUnitCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/org-units/snapshot:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 组织架构
+      summary: 生成项目组织快照
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgSnapshotRequest'
+      security:
+      - bearerAuth: []
+  /standards:
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询标准列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: standard_type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: applicable_market
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /topics:
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询议题库
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: topic_category
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /metrics:
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询指标库
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: metric_type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: topic_code
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /topics/{topic_code}/recommended-metrics:
+    parameters:
+    - name: topic_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 获取议题推荐指标
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendedMetricsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /enterprises/{enterprise_id}/gics/identify:
+    parameters:
+    - name: enterprise_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - GICS行业
+      summary: 自动识别GICS行业
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GicsIdentifyResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GicsIdentifyRequest'
+      security:
+      - bearerAuth: []
+  /enterprises/{enterprise_id}/gics/confirm:
+    parameters:
+    - name: enterprise_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - GICS行业
+      summary: 确认GICS行业
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GicsConfirmRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-companies/recommend:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 同行公司
+      summary: 推荐同行公司
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerRecommendResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PeerRecommendRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-companies:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 同行公司
+      summary: 手动添加同行公司
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerCompany'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PeerCompanyCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-companies/confirm:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 同行公司
+      summary: 确认同行池
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PeerConfirmRequest'
+      security:
+      - bearerAuth: []
+  /files/upload:
+    post:
+      tags:
+      - 文件
+      summary: 上传文件
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              - business_type
+              properties:
+                file:
+                  type: string
+                  format: binary
+                business_type:
+                  type: string
+                enterprise_id:
+                  type: string
+                project_id:
+                  type: string
+                related_object_id:
+                  type: string
+                metadata:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileObject'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{project_id}/peer-reports:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 同行报告解析
+      summary: 创建同行报告记录
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerReport'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PeerReportCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-reports/{peer_report_id}/parse:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: peer_report_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 同行报告解析
+      summary: 启动报告解析
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseOptionsRequest'
+      security:
+      - bearerAuth: []
+  /jobs/{job_id}:
+    parameters:
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 异步任务
+      summary: 查询异步任务
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-reports/{peer_report_id}/parse-result:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: peer_report_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 同行报告解析
+      summary: 获取解析结果
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseResultResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-reports/{peer_report_id}/parse-result/{result_id}:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: peer_report_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: result_id
+      in: path
+      required: true
+      schema:
+        type: string
+    patch:
+      tags:
+      - 同行报告解析
+      summary: 人工修正解析结果
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseResultPatchRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-reports/{peer_report_id}/approve-and-store:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: peer_report_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 同行报告解析
+      summary: 审核通过并入库
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveAndStoreRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/recommendations/standards/generate:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 推荐
+      summary: 生成推荐标准
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationGenerateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/recommendations/standards:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 推荐
+      summary: 获取推荐标准
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/standards/confirm:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 推荐
+      summary: 确认项目标准
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectStandardsConfirmRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/recommendations/topics/generate:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 推荐
+      summary: 生成推荐议题
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationGenerateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/recommendations/topics:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 推荐
+      summary: 获取推荐议题
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/recommendations/{recommendation_id}/sources:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: recommendation_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 推荐
+      summary: 获取推荐来源
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationSourcesResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/topics:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 项目议题
+      summary: 获取项目议题清单
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectTopicListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - 项目议题
+      summary: 新增项目议题
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectTopic'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectTopicCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/topics/accept:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 项目议题
+      summary: 接受推荐议题
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptTopicsRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/topics/{project_topic_id}:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: project_topic_id
+      in: path
+      required: true
+      schema:
+        type: string
+    patch:
+      tags:
+      - 项目议题
+      summary: 更新项目议题
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectTopic'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectTopicCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/topics/{project_topic_id}/metrics/confirm:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: project_topic_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 项目议题
+      summary: 选择议题指标
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectTopicMetricsConfirmRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/topics/lock:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 项目议题
+      summary: 锁定项目议题清单
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LockTopicsRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/assignments/recommend:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 任务分配
+      summary: 推荐议题分配
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentRecommendResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/assignments:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 任务分配
+      summary: 保存议题分配
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentsSaveRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/tasks/preview:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 任务分配
+      summary: 生成任务预览
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPreviewResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/tasks/generate:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 任务分配
+      summary: 正式生成任务
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateTasksRequest'
+      security:
+      - bearerAuth: []
+  /my/collection-tasks:
+    get:
+      tags:
+      - 部门采集
+      summary: 我的采集任务
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionTaskListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: task_status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: due_date_from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: due_date_to
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /collection-tasks/{task_id}:
+    parameters:
+    - name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 部门采集
+      summary: 获取采集任务详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionTaskDetail'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /collection-tasks/{task_id}/draft:
+    parameters:
+    - name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 部门采集
+      summary: 保存填报草稿
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionDraftRequest'
+      security:
+      - bearerAuth: []
+  /collection-tasks/{task_id}/validate:
+    parameters:
+    - name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 部门采集
+      summary: 运行采集校验
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /collection-tasks/{task_id}/submit:
+    parameters:
+    - name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 部门采集
+      summary: 提交审核
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitTaskRequest'
+      security:
+      - bearerAuth: []
+  /my/review-tasks:
+    get:
+      tags:
+      - 部门审核
+      summary: 我的审核任务
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewTaskListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /review-tasks/{task_id}:
+    parameters:
+    - name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 部门审核
+      summary: 获取审核详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewTaskDetail'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /review-tasks/{task_id}/review:
+    parameters:
+    - name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 部门审核
+      summary: 提交审核结论
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewSubmitRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/esg-data-records:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - ESG数据
+      summary: 查询ESG数据表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EsgDataRecordListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: topic_code
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: metric_code
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: org_unit_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: period
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: data_type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: source_task_id
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/esg-data-records/{data_record_id}/sources:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: data_record_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - ESG数据
+      summary: 获取ESG数据来源
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/knowledge/search:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 知识库
+      summary: 搜索知识库
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSearchResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeSearchRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/knowledge/documents/{knowledge_document_id}:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: knowledge_document_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 知识库
+      summary: 获取知识库文件详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDocumentDetail'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - AI写作
+      summary: 查询章节结构
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapterListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - AI写作
+      summary: 创建章节
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/materials/prepare:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - AI写作
+      summary: 准备章节材料包
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaterialPrepareRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/materials/latest:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - AI写作
+      summary: 获取章节材料包
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialPackage'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/materials/{material_package_id}/confirm:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: material_package_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - AI写作
+      summary: 确认材料包
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaterialConfirmRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/generate:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - AI写作
+      summary: 启动AI章节写作
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterGenerateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/versions:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - AI写作
+      summary: 获取章节版本
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapterVersionListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - AI写作
+      summary: 保存人工编辑版本
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapterVersion'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterVersionCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/versions/{chapter_version_id}/citations/rebuild:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_version_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 来源引用
+      summary: 重建章节来源引用
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CitationRebuildRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/versions/{chapter_version_id}/citations:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_version_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 来源引用
+      summary: 获取章节来源引用
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitationResultsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/versions/{chapter_version_id}/review:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_version_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - AI校对
+      summary: 启动章节校对
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterReviewRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/versions/{chapter_version_id}/review-issues:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_version_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - AI校对
+      summary: 获取章节校对问题
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewIssueListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/review-issues/{issue_id}/handle:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: issue_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - AI校对
+      summary: 处理章节校对问题
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandleReviewIssueRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/chapters/{chapter_id}/versions/{chapter_version_id}/confirm:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: chapter_version_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - AI校对
+      summary: 确认章节
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmChapterRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/full-review:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 全文校对
+      summary: 启动全文校对
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullReviewRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/full-review/latest:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 全文校对
+      summary: 获取全文校对结果
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FullReviewResult'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/full-review/confirm:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 全文校对
+      summary: 确认全文
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullReviewConfirmRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/exports:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 报告导出
+      summary: 创建导出任务
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportCreateRequest'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - 报告导出
+      summary: 查询导出记录
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /files/{file_id}/download:
+    parameters:
+    - name: file_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 文件
+      summary: 下载文件
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileDownloadResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /ai/models:
+    get:
+      tags:
+      - AI模型与成本
+      summary: 查询AI模型列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiModelListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /ai/call-logs:
+    get:
+      tags:
+      - AI模型与成本
+      summary: 查询AI调用日志
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiCallLogListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: agent_type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: model_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date_from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date_to
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /ai/cost-statistics:
+    get:
+      tags:
+      - AI模型与成本
+      summary: AI成本统计
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostStatisticsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: enterprise_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: group_by
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date_from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date_to
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  /audit-logs:
+    get:
+      tags:
+      - 审计日志
+      summary: 查询操作日志
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: enterprise_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: action_type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date_from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: date_to
+        in: query
+        required: false
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiResponse:
+      type: object
+      required:
+      - success
+      - data
+      - message
+      - request_id
+      - timestamp
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+        message:
+          type: string
+        request_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      required:
+      - success
+      - message
+      - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        data:
+          nullable: true
+        message:
+          type: string
+        error:
+          $ref: '#/components/schemas/ErrorObject'
+        request_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    ErrorObject:
+      type: object
+      properties:
+        code:
+          type: string
+        type:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    PagedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+    LoginRequest:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        captcha_token:
+          type: string
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+        available_tenants:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantAccess'
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        avatar_url:
+          type: string
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+    TenantAccess:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    CurrentUserResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        current_tenant_id:
+          type: string
+        current_enterprise_id:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        enterprises:
+          type: array
+          items:
+            type: object
+            properties:
+              enterprise_id:
+                type: string
+              enterprise_name:
+                type: string
+              access_scope:
+                type: string
+    SwitchTenantRequest:
+      type: object
+      required:
+      - tenant_id
+      properties:
+        tenant_id:
+          type: string
+    SwitchTenantResponse:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        access_token:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    EnterpriseCreateRequest:
+      type: object
+      required:
+      - enterprise_name
+      properties:
+        enterprise_name:
+          type: string
+        enterprise_short_name:
+          type: string
+        stock_code:
+          type: string
+        exchange:
+          type: string
+        country_or_region:
+          type: string
+        industry_description:
+          type: string
+        main_business:
+          type: string
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+    Enterprise:
+      type: object
+      properties:
+        enterprise_id:
+          type: string
+        tenant_id:
+          type: string
+        enterprise_name:
+          type: string
+        enterprise_short_name:
+          type: string
+        stock_code:
+          type: string
+        exchange:
+          type: string
+        country_or_region:
+          type: string
+        industry_description:
+          type: string
+        main_business:
+          type: string
+        gics:
+          $ref: '#/components/schemas/GicsClassification'
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    EnterpriseListResponse:
+      allOf:
+      - $ref: '#/components/schemas/PagedResponse'
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Enterprise'
+    GicsClassification:
+      type: object
+      properties:
+        gics_level_1_code:
+          type: string
+        gics_level_1_name:
+          type: string
+        gics_level_2_code:
+          type: string
+        gics_level_2_name:
+          type: string
+        gics_level_3_code:
+          type: string
+        gics_level_3_name:
+          type: string
+        gics_level_4_code:
+          type: string
+        gics_level_4_name:
+          type: string
+    UserCreateRequest:
+      type: object
+      required:
+      - name
+      - email
+      - role_codes
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role_codes:
+          type: array
+          items:
+            type: string
+        enterprise_access:
+          type: array
+          items:
+            type: object
+            properties:
+              enterprise_id:
+                type: string
+              access_scope:
+                type: string
+        status:
+          type: string
+          enum:
+          - active
+          - inactive
+    UserListResponse:
+      allOf:
+      - $ref: '#/components/schemas/PagedResponse'
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    AssignRolesRequest:
+      type: object
+      required:
+      - role_codes
+      properties:
+        role_codes:
+          type: array
+          items:
+            type: string
+        enterprise_id:
+          type: string
+        project_id:
+          type: string
+        org_unit_ids:
+          type: array
+          items:
+            type: string
+    ProjectCreateRequest:
+      type: object
+      required:
+      - enterprise_id
+      - project_name
+      - report_year
+      - report_type
+      - project_owner_user_id
+      properties:
+        enterprise_id:
+          type: string
+        project_name:
+          type: string
+        report_year:
+          type: integer
+        report_type:
+          type: string
+        report_language:
+          type: string
+          enum:
+          - zh
+          - en
+          - bilingual
+        reporting_period_start:
+          type: string
+          format: date
+        reporting_period_end:
+          type: string
+          format: date
+        report_boundary:
+          type: string
+        selected_standard_codes:
+          type: array
+          items:
+            type: string
+        project_owner_user_id:
+          type: string
+        reuse_from_project_id:
+          type: string
+          nullable: true
+        reuse_options:
+          type: object
+          additionalProperties:
+            type: boolean
+    Project:
+      type: object
+      properties:
+        project_id:
+          type: string
+        enterprise_id:
+          type: string
+        project_name:
+          type: string
+        report_year:
+          type: integer
+        project_status:
+          type: string
+          enum:
+          - draft
+          - peer_analysis
+          - topic_confirmation
+          - task_assignment
+          - data_collection
+          - department_review
+          - writing
+          - chapter_review
+          - full_review
+          - export_ready
+          - completed
+          - archived
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProjectListResponse:
+      allOf:
+      - $ref: '#/components/schemas/PagedResponse'
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+    ProjectDashboard:
+      type: object
+      properties:
+        project:
+          $ref: '#/components/schemas/Project'
+        progress:
+          type: object
+          additionalProperties:
+            type: integer
+        risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskItem'
+        next_steps:
+          type: array
+          items:
+            type: object
+            properties:
+              step_code:
+                type: string
+              message:
+                type: string
+              target_url:
+                type: string
+    RiskItem:
+      type: object
+      properties:
+        risk_id:
+          type: string
+        risk_type:
+          type: string
+        severity:
+          type: string
+          enum:
+          - high
+          - medium
+          - low
+        message:
+          type: string
+        target_url:
+          type: string
+    OrgUnit:
+      type: object
+      properties:
+        org_unit_id:
+          type: string
+        org_unit_name:
+          type: string
+        org_unit_type:
+          type: string
+        collector_user_ids:
+          type: array
+          items:
+            type: string
+        reviewer_user_ids:
+          type: array
+          items:
+            type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrgUnit'
+    OrgTreeResponse:
+      type: object
+      properties:
+        enterprise_id:
+          type: string
+        tree:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrgUnit'
+    OrgUnitCreateRequest:
+      type: object
+      required:
+      - org_unit_name
+      - org_unit_type
+      properties:
+        parent_org_unit_id:
+          type: string
+        org_unit_name:
+          type: string
+        org_unit_type:
+          type: string
+        department_owner_user_id:
+          type: string
+        collector_user_ids:
+          type: array
+          items:
+            type: string
+        reviewer_user_ids:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+    OrgSnapshotRequest:
+      type: object
+      properties:
+        enterprise_id:
+          type: string
+        include_org_unit_ids:
+          type: array
+          items:
+            type: string
+    Standard:
+      type: object
+      properties:
+        standard_code:
+          type: string
+        standard_name:
+          type: string
+        standard_short_name:
+          type: string
+        standard_type:
+          type: string
+        applicable_market:
+          type: string
+        current_version:
+          type: string
+        status:
+          type: string
+    StandardListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Standard'
+        total:
+          type: integer
+    Topic:
+      type: object
+      properties:
+        topic_code:
+          type: string
+        topic_name:
+          type: string
+        topic_category:
+          type: string
+          enum:
+          - E
+          - S
+          - G
+        default_financial_materiality:
+          type: string
+        default_impact_materiality:
+          type: string
+        default_owner_department:
+          type: string
+        status:
+          type: string
+    TopicListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+        total:
+          type: integer
+    Metric:
+      type: object
+      properties:
+        metric_code:
+          type: string
+        metric_name:
+          type: string
+        metric_type:
+          type: string
+          enum:
+          - quantitative
+          - qualitative
+        data_type:
+          type: string
+        default_unit:
+          type: string
+        default_required:
+          type: boolean
+        status:
+          type: string
+    MetricListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metric'
+        total:
+          type: integer
+    RecommendedMetricsResponse:
+      type: object
+      properties:
+        topic_code:
+          type: string
+        topic_name:
+          type: string
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metric'
+    GicsIdentifyRequest:
+      type: object
+      properties:
+        company_name:
+          type: string
+        stock_code:
+          type: string
+        exchange:
+          type: string
+        main_business:
+          type: string
+        industry_description:
+          type: string
+    GicsIdentifyResponse:
+      type: object
+      properties:
+        enterprise_id:
+          type: string
+        identification_result:
+          allOf:
+          - $ref: '#/components/schemas/GicsClassification'
+          properties:
+            confidence:
+              type: number
+            reason:
+              type: string
+        alternative_results:
+          type: array
+          items:
+            allOf:
+            - $ref: '#/components/schemas/GicsClassification'
+        requires_human_confirmation:
+          type: boolean
+    GicsConfirmRequest:
+      type: object
+      required:
+      - gics_level
+      - gics_code
+      properties:
+        gics_level:
+          type: integer
+        gics_code:
+          type: string
+        confirmation_note:
+          type: string
+    PeerRecommendRequest:
+      type: object
+      properties:
+        gics_level:
+          type: integer
+        gics_code:
+          type: string
+        prefer_same_exchange:
+          type: boolean
+        prefer_business_similarity:
+          type: boolean
+        prefer_industry_leaders:
+          type: boolean
+        limit:
+          type: integer
+    PeerCompany:
+      type: object
+      properties:
+        peer_company_id:
+          type: string
+        company_name:
+          type: string
+        stock_code:
+          type: string
+        exchange:
+          type: string
+        gics_level_4_code:
+          type: string
+        gics_level_4_name:
+          type: string
+        business_similarity_score:
+          type: number
+        industry_leader_score:
+          type: number
+        report_availability_score:
+          type: number
+        overall_score:
+          type: number
+        recommendation_reason:
+          type: string
+        latest_report_year:
+          type: integer
+        has_report_in_library:
+          type: boolean
+        selected:
+          type: boolean
+    PeerRecommendResponse:
+      type: object
+      properties:
+        project_id:
+          type: string
+        recommended_peers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PeerCompany'
+    PeerCompanyCreateRequest:
+      type: object
+      required:
+      - company_name
+      properties:
+        company_name:
+          type: string
+        stock_code:
+          type: string
+        exchange:
+          type: string
+        reason:
+          type: string
+    PeerConfirmRequest:
+      type: object
+      properties:
+        selected_peer_company_ids:
+          type: array
+          items:
+            type: string
+        confirmation_note:
+          type: string
+    FileObject:
+      type: object
+      properties:
+        file_id:
+          type: string
+        file_name:
+          type: string
+        file_type:
+          type: string
+        file_size:
+          type: integer
+        storage_path:
+          type: string
+        business_type:
+          type: string
+        upload_status:
+          type: string
+        uploaded_at:
+          type: string
+          format: date-time
+    PeerReportCreateRequest:
+      type: object
+      required:
+      - peer_company_id
+      - file_id
+      - report_year
+      properties:
+        peer_company_id:
+          type: string
+        file_id:
+          type: string
+        report_year:
+          type: integer
+        report_name:
+          type: string
+        report_language:
+          type: string
+        file_type:
+          type: string
+    PeerReport:
+      type: object
+      properties:
+        peer_report_id:
+          type: string
+        peer_company_id:
+          type: string
+        file_id:
+          type: string
+        report_year:
+          type: integer
+        parse_status:
+          type: string
+    ParseOptionsRequest:
+      type: object
+      properties:
+        parse_options:
+          type: object
+          properties:
+            extract_standards:
+              type: boolean
+            extract_topics:
+              type: boolean
+            extract_materiality:
+              type: boolean
+            extract_metrics:
+              type: boolean
+            extract_cases:
+              type: boolean
+    Job:
+      type: object
+      properties:
+        job_id:
+          type: string
+        job_type:
+          type: string
+        job_status:
+          type: string
+          enum:
+          - pending
+          - running
+          - succeeded
+          - failed
+          - retrying
+          - cancelled
+        progress:
+          type: integer
+        current_step:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          nullable: true
+    SourceReference:
+      type: object
+      properties:
+        source_id:
+          type: string
+        source_type:
+          type: string
+        source_object_id:
+          type: string
+        document_name:
+          type: string
+        page_no:
+          type: integer
+        section_title:
+          type: string
+        paragraph_no:
+          type: string
+        table_name:
+          type: string
+        row_or_cell:
+          type: string
+        start_time_sec:
+          type: number
+          nullable: true
+        end_time_sec:
+          type: number
+          nullable: true
+        quoted_text:
+          type: string
+        support_status:
+          type: string
+        confidence:
+          type: number
+    ParseResultResponse:
+      type: object
+      properties:
+        peer_report_id:
+          type: string
+        parse_status:
+          type: string
+        ai_review_status:
+          type: string
+        result:
+          type: object
+          properties:
+            standards:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            topics:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            ai_review_issues:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReviewIssue'
+    ParseResultPatchRequest:
+      type: object
+      properties:
+        object_type:
+          type: string
+        mapped_topic_code:
+          type: string
+        mapped_standard_code:
+          type: string
+        financial_materiality:
+          type: string
+        impact_materiality:
+          type: string
+        review_status:
+          type: string
+        review_note:
+          type: string
+    ApproveAndStoreRequest:
+      type: object
+      properties:
+        approval_note:
+          type: string
+        include_standards:
+          type: boolean
+        include_topics:
+          type: boolean
+        include_metrics:
+          type: boolean
+        include_cases:
+          type: boolean
+    RecommendationGenerateRequest:
+      type: object
+      properties:
+        based_on_peer_reports:
+          type: boolean
+        only_approved_reports:
+          type: boolean
+        only_approved_peer_reports:
+          type: boolean
+        include_materiality_distribution:
+          type: boolean
+        include_ai_reason:
+          type: boolean
+    Recommendation:
+      type: object
+      properties:
+        recommendation_id:
+          type: string
+        item_type:
+          type: string
+          enum:
+          - standard
+          - topic
+        standard_code:
+          type: string
+        topic_code:
+          type: string
+        item_name:
+          type: string
+        adoption_rate:
+          type: number
+        adopted_company_count:
+          type: integer
+        analyzed_report_count:
+          type: integer
+        recommendation_level:
+          type: string
+        reason:
+          type: string
+        source_count:
+          type: integer
+        selected:
+          type: boolean
+    RecommendationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+    ProjectStandardsConfirmRequest:
+      type: object
+      properties:
+        selected_standard_codes:
+          type: array
+          items:
+            type: string
+        confirmation_note:
+          type: string
+    RecommendationSourcesResponse:
+      type: object
+      properties:
+        recommendation_id:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceReference'
+    ProjectTopic:
+      type: object
+      properties:
+        project_topic_id:
+          type: string
+        topic_code:
+          type: string
+        topic_name:
+          type: string
+        topic_category:
+          type: string
+        source:
+          type: string
+        adoption_rate:
+          type: number
+        financial_materiality:
+          type: string
+        impact_materiality:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        selected_metric_count:
+          type: integer
+        required_metric_count:
+          type: integer
+    ProjectTopicListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectTopic'
+    AcceptTopicsRequest:
+      type: object
+      properties:
+        recommendation_ids:
+          type: array
+          items:
+            type: string
+    ProjectTopicCreateRequest:
+      type: object
+      properties:
+        topic_code:
+          type: string
+        topic_name:
+          type: string
+        topic_category:
+          type: string
+        financial_materiality:
+          type: string
+        impact_materiality:
+          type: string
+        priority:
+          type: string
+        source:
+          type: string
+        note:
+          type: string
+    ProjectTopicMetricsConfirmRequest:
+      type: object
+      properties:
+        selected_metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              metric_code:
+                type: string
+              is_required:
+                type: boolean
+              custom_filling_instruction:
+                type: string
+    LockTopicsRequest:
+      type: object
+      properties:
+        lock_note:
+          type: string
+    AssignmentRecommendResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              project_topic_id:
+                type: string
+              topic_name:
+                type: string
+              recommended_owner_org_unit_id:
+                type: string
+              recommended_owner_org_unit_name:
+                type: string
+              recommended_collector_user_id:
+                type: string
+              recommended_reviewer_user_id:
+                type: string
+              reason:
+                type: string
+    AssignmentsSaveRequest:
+      type: object
+      properties:
+        assignments:
+          type: array
+          items:
+            type: object
+            properties:
+              project_topic_id:
+                type: string
+              owner_org_unit_id:
+                type: string
+              collaborator_org_unit_ids:
+                type: array
+                items:
+                  type: string
+              collector_user_id:
+                type: string
+              reviewer_user_id:
+                type: string
+              due_date:
+                type: string
+                format: date
+              priority:
+                type: string
+    TaskPreviewResponse:
+      type: object
+      properties:
+        task_count:
+          type: integer
+        blocking_issues:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        tasks:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    GenerateTasksRequest:
+      type: object
+      properties:
+        generate_note:
+          type: string
+    CollectionTask:
+      type: object
+      properties:
+        task_id:
+          type: string
+        project_id:
+          type: string
+        project_name:
+          type: string
+        task_name:
+          type: string
+        topic_name:
+          type: string
+        metric_count:
+          type: integer
+        required_metric_count:
+          type: integer
+        attachment_required_count:
+          type: integer
+        due_date:
+          type: string
+          format: date
+        task_status:
+          type: string
+    CollectionTaskListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionTask'
+    CollectionTaskDetail:
+      type: object
+      properties:
+        task_id:
+          type: string
+        task_name:
+          type: string
+        topic:
+          $ref: '#/components/schemas/ProjectTopic'
+        collector:
+          $ref: '#/components/schemas/User'
+        reviewer:
+          $ref: '#/components/schemas/User'
+        metrics:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        task_status:
+          type: string
+    SubmissionDraftRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              project_metric_id:
+                type: string
+              value: {}
+              text_value:
+                type: string
+                nullable: true
+              unit:
+                type: string
+              period:
+                type: string
+              org_unit_id:
+                type: string
+              description:
+                type: string
+              attachment_file_ids:
+                type: array
+                items:
+                  type: string
+    ValidationResult:
+      type: object
+      properties:
+        task_id:
+          type: string
+        validation_result:
+          type: string
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              issue_id:
+                type: string
+              project_metric_id:
+                type: string
+              metric_name:
+                type: string
+              issue_type:
+                type: string
+              severity:
+                type: string
+              message:
+                type: string
+              blocks_submission:
+                type: boolean
+        can_submit:
+          type: boolean
+    SubmitTaskRequest:
+      type: object
+      properties:
+        submission_note:
+          type: string
+        confirmed_warning_issue_ids:
+          type: array
+          items:
+            type: string
+        warning_confirmation_note:
+          type: string
+    ReviewTaskListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ReviewTaskDetail:
+      type: object
+      properties:
+        task_id:
+          type: string
+        submission_id:
+          type: string
+        task_name:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        submission_note:
+          type: string
+    ReviewSubmitRequest:
+      type: object
+      properties:
+        review_action:
+          type: string
+          enum:
+          - approve
+          - return
+          - request_evidence
+          - confirm_abnormal
+          - mark_not_applicable
+        review_note:
+          type: string
+        confirmed_validation_issue_ids:
+          type: array
+          items:
+            type: string
+        return_items:
+          type: array
+          items:
+            type: object
+            properties:
+              submission_item_id:
+                type: string
+              return_reason:
+                type: string
+    EsgDataRecord:
+      type: object
+      properties:
+        data_record_id:
+          type: string
+        project_id:
+          type: string
+        topic_code:
+          type: string
+        topic_name:
+          type: string
+        metric_code:
+          type: string
+        metric_name:
+          type: string
+        data_type:
+          type: string
+        value: {}
+        text_value:
+          type: string
+          nullable: true
+        unit:
+          type: string
+        period:
+          type: string
+        org_unit_name:
+          type: string
+        source_org_unit_name:
+          type: string
+        review_status:
+          type: string
+        report_reference_status:
+          type: string
+    EsgDataRecordListResponse:
+      allOf:
+      - $ref: '#/components/schemas/PagedResponse'
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EsgDataRecord'
+    SourceListResponse:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceReference'
+    KnowledgeSearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        filters:
+          type: object
+          properties:
+            department_ids:
+              type: array
+              items:
+                type: string
+            topic_codes:
+              type: array
+              items:
+                type: string
+            metric_codes:
+              type: array
+              items:
+                type: string
+            file_types:
+              type: array
+              items:
+                type: string
+            review_status:
+              type: string
+            year:
+              type: integer
+        search_mode:
+          type: string
+          enum:
+          - keyword
+          - vector
+          - hybrid
+        limit:
+          type: integer
+    KnowledgeSearchResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              knowledge_document_id:
+                type: string
+              chunk_id:
+                type: string
+              document_name:
+                type: string
+              file_type:
+                type: string
+              matched_text:
+                type: string
+              highlight:
+                type: string
+              department_name:
+                type: string
+              topic_names:
+                type: array
+                items:
+                  type: string
+              metric_names:
+                type: array
+                items:
+                  type: string
+              page_no:
+                type: integer
+              relevance_score:
+                type: number
+              review_status:
+                type: string
+    KnowledgeDocumentDetail:
+      type: object
+      properties:
+        knowledge_document_id:
+          type: string
+        file_id:
+          type: string
+        document_name:
+          type: string
+        file_type:
+          type: string
+        department_name:
+          type: string
+        related_topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+        related_metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metric'
+        chunks:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    Chapter:
+      type: object
+      properties:
+        chapter_id:
+          type: string
+        chapter_title:
+          type: string
+        chapter_order:
+          type: integer
+        chapter_level:
+          type: integer
+        chapter_status:
+          type: string
+        related_topic_codes:
+          type: array
+          items:
+            type: string
+        latest_version_id:
+          type: string
+          nullable: true
+        confirmed_version_id:
+          type: string
+          nullable: true
+    ChapterListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chapter'
+    ChapterCreateRequest:
+      type: object
+      properties:
+        chapter_title:
+          type: string
+        chapter_order:
+          type: integer
+        chapter_level:
+          type: integer
+        parent_chapter_id:
+          type: string
+          nullable: true
+        related_topic_codes:
+          type: array
+          items:
+            type: string
+        writing_requirements:
+          type: string
+    MaterialPrepareRequest:
+      type: object
+      properties:
+        include_esg_data:
+          type: boolean
+        include_knowledge_documents:
+          type: boolean
+        include_interviews:
+          type: boolean
+        include_peer_references:
+          type: boolean
+        include_standard_clauses:
+          type: boolean
+    MaterialPackage:
+      type: object
+      properties:
+        material_package_id:
+          type: string
+        chapter_id:
+          type: string
+        chapter_title:
+          type: string
+        materials:
+          type: object
+          additionalProperties: true
+        can_generate_chapter:
+          type: boolean
+        requires_user_confirmation:
+          type: boolean
+    MaterialConfirmRequest:
+      type: object
+      properties:
+        included_material_ids:
+          type: array
+          items:
+            type: string
+        excluded_material_ids:
+          type: array
+          items:
+            type: string
+        confirmation_note:
+          type: string
+    ChapterGenerateRequest:
+      type: object
+      properties:
+        material_package_id:
+          type: string
+        model_id:
+          type: string
+        writing_style:
+          type: string
+        forbidden_claims:
+          type: array
+          items:
+            type: string
+        generation_note:
+          type: string
+    ChapterVersion:
+      type: object
+      properties:
+        chapter_version_id:
+          type: string
+        chapter_id:
+          type: string
+        version_no:
+          type: integer
+        version_type:
+          type: string
+        content_markdown:
+          type: string
+        source_claim_count:
+          type: integer
+        missing_source_count:
+          type: integer
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ChapterVersionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChapterVersion'
+    ChapterVersionCreateRequest:
+      type: object
+      properties:
+        base_version_id:
+          type: string
+        content_markdown:
+          type: string
+        edit_note:
+          type: string
+    CitationRebuildRequest:
+      type: object
+      properties:
+        model_id:
+          type: string
+        rebuild_reason:
+          type: string
+    CitationResultsResponse:
+      type: object
+      properties:
+        chapter_version_id:
+          type: string
+        citation_results:
+          type: array
+          items:
+            type: object
+            properties:
+              citation_id:
+                type: string
+              claim_id:
+                type: string
+              claim_text:
+                type: string
+              support_status:
+                type: string
+              citation_label:
+                type: string
+              source_references:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SourceReference'
+              requires_fix:
+                type: boolean
+        coverage_summary:
+          type: object
+          additionalProperties: true
+    ChapterReviewRequest:
+      type: object
+      properties:
+        model_id:
+          type: string
+        review_options:
+          type: object
+          additionalProperties:
+            type: boolean
+    ReviewIssue:
+      type: object
+      properties:
+        issue_id:
+          type: string
+        issue_type:
+          type: string
+        severity:
+          type: string
+          enum:
+          - high
+          - medium
+          - low
+          - info
+        location:
+          type: object
+          additionalProperties: true
+        description:
+          type: string
+        suggested_fix:
+          type: string
+        must_fix:
+          type: boolean
+        review_status:
+          type: string
+    ReviewIssueListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewIssue'
+        summary:
+          type: object
+          additionalProperties:
+            type: integer
+        can_confirm_chapter:
+          type: boolean
+    HandleReviewIssueRequest:
+      type: object
+      properties:
+        handle_action:
+          type: string
+          enum:
+          - accept_suggestion
+          - manual_edit
+          - ignore
+          - add_source
+          - regenerate
+        updated_text:
+          type: string
+        handle_note:
+          type: string
+    ConfirmChapterRequest:
+      type: object
+      properties:
+        confirmation_note:
+          type: string
+        force_confirm:
+          type: boolean
+    FullReviewRequest:
+      type: object
+      properties:
+        model_id:
+          type: string
+        review_options:
+          type: object
+          additionalProperties:
+            type: boolean
+    FullReviewResult:
+      type: object
+      properties:
+        full_review_id:
+          type: string
+        overall_result:
+          type: string
+        coverage:
+          type: object
+          additionalProperties:
+            type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewIssue'
+        can_export:
+          type: boolean
+    FullReviewConfirmRequest:
+      type: object
+      properties:
+        confirmation_note:
+          type: string
+        force_confirm:
+          type: boolean
+    ExportCreateRequest:
+      type: object
+      properties:
+        export_formats:
+          type: array
+          items:
+            type: string
+            enum:
+            - word
+            - pdf
+            - excel
+        export_options:
+          type: object
+          additionalProperties:
+            type: boolean
+        template_id:
+          type: string
+    ExportRecord:
+      type: object
+      properties:
+        export_id:
+          type: string
+        export_formats:
+          type: array
+          items:
+            type: string
+        export_status:
+          type: string
+        created_by_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        files:
+          type: array
+          items:
+            type: object
+            properties:
+              file_id:
+                type: string
+              file_name:
+                type: string
+              file_format:
+                type: string
+              download_url:
+                type: string
+    ExportListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportRecord'
+    FileDownloadResponse:
+      type: object
+      properties:
+        file_id:
+          type: string
+        download_url:
+          type: string
+        expires_in:
+          type: integer
+    AiModel:
+      type: object
+      properties:
+        model_id:
+          type: string
+        provider:
+          type: string
+        model_name:
+          type: string
+        enabled:
+          type: boolean
+        capabilities:
+          type: array
+          items:
+            type: string
+        input_price_per_1k_tokens:
+          type: number
+        output_price_per_1k_tokens:
+          type: number
+        is_default:
+          type: boolean
+    AiModelListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiModel'
+    AiCallLog:
+      type: object
+      properties:
+        ai_call_id:
+          type: string
+        project_id:
+          type: string
+        agent_type:
+          type: string
+        model_name:
+          type: string
+        prompt_version:
+          type: string
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        total_cost:
+          type: number
+        call_status:
+          type: string
+        duration_seconds:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    AiCallLogListResponse:
+      allOf:
+      - $ref: '#/components/schemas/PagedResponse'
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiCallLog'
+    CostStatisticsResponse:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            total_calls:
+              type: integer
+            total_tokens:
+              type: integer
+            total_cost:
+              type: number
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              group_key:
+                type: string
+              group_name:
+                type: string
+              call_count:
+                type: integer
+              total_tokens:
+                type: integer
+              total_cost:
+                type: number
+    AuditLogListResponse:
+      allOf:
+      - $ref: '#/components/schemas/PagedResponse'
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              audit_log_id:
+                type: string
+              user_id:
+                type: string
+              user_name:
+                type: string
+              action_type:
+                type: string
+              object_type:
+                type: string
+              object_id:
+                type: string
+              description:
+                type: string
+              ip_address:
+                type: string
+              created_at:
+                type: string
+                format: date-time

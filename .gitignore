@@ -1,0 +1,44 @@
+# Environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+.pnpm-store/
+
+# IDE
+.vscode/settings.json
+.idea/
+.DS_Store
+
+# Local data
+.local-data/
+uploads/
+exports/
+tmp/
+
+# Logs
+*.log
+logs/
+
+# Generated files
+apps/web/src/services/generated/*
+!apps/web/src/services/generated/.gitkeep
