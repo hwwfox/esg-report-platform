@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: help install dev-up dev-down storage-init migrate seed db-reset api worker ai-gateway web lint typecheck test test-api test-e2e openapi-check schema-check docker-build clean
+.PHONY: help install dev-up dev-down storage-init migrate seed db-reset api worker ai-gateway web lint typecheck test test-api test-e2e openapi-check schema-check migration-check ci-local docker-build clean
 
 help:
 	@echo "ESG Report Platform commands"
@@ -17,7 +17,7 @@ help:
 	@echo "  make test             Run available tests"
 
 install:
-	@if [ -f apps/web/package.json ]; then cd apps/web && pnpm install; fi
+	@if [ -f apps/web/package.json ]; then cd apps/web && if command -v pnpm >/dev/null 2>&1; then pnpm install; else npm install --no-package-lock; fi; fi
 	@if [ -f apps/api/requirements.txt ]; then python -m pip install -r apps/api/requirements.txt; fi
 	@if [ -f apps/worker/requirements.txt ]; then python -m pip install -r apps/worker/requirements.txt; fi
 	@if [ -f apps/ai-gateway/requirements.txt ]; then python -m pip install -r apps/ai-gateway/requirements.txt; fi
@@ -54,13 +54,13 @@ ai-gateway:
 	cd apps/ai-gateway && uvicorn app.main:app --reload --host 0.0.0.0 --port 9002
 
 web:
-	cd apps/web && pnpm dev --host 0.0.0.0 --port 3000
+	cd apps/web && if command -v pnpm >/dev/null 2>&1; then pnpm dev --host 0.0.0.0 --port 3000; else npm run dev -- --host 0.0.0.0 --port 3000; fi
 
 lint:
-	@echo "TODO: add ruff/eslint checks once dependencies are finalized"
+	@echo "[lint] Placeholder: no ruff/eslint configuration yet; command is safe for Sprint 0 bootstrap."
 
 typecheck:
-	@if [ -f apps/web/package.json ]; then cd apps/web && pnpm typecheck; fi
+	@if [ -f apps/web/package.json ]; then cd apps/web && if command -v pnpm >/dev/null 2>&1; then pnpm typecheck; else npm install --no-package-lock && npm run typecheck; fi; fi
 
 test:
 	cd apps/api && python -m pytest tests
@@ -71,13 +71,19 @@ test-api:
 	cd apps/api && python -m pytest tests
 
 test-e2e:
-	@if [ -f apps/web/package.json ]; then cd apps/web && pnpm test:e2e; fi
+	@if [ -f apps/web/package.json ]; then cd apps/web && if command -v pnpm >/dev/null 2>&1; then pnpm test:e2e; else npm run test:e2e; fi; fi
 
 openapi-check:
 	python tools/codegen/check_openapi.py contracts/openapi/ESG_P0_OpenAPI_v0.1.yaml
 
 schema-check:
 	python tools/codegen/check_json_schemas.py contracts/schemas ai/schemas
+
+migration-check:
+	bash scripts/check-migrations.sh
+
+ci-local:
+	bash scripts/ci-local.sh
 
 docker-build:
 	@echo "TODO: add service Docker builds after first implementation"
