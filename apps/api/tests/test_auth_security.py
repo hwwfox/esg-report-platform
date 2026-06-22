@@ -25,7 +25,11 @@ def test_seed_sql_uses_valid_demo_password_hash():
     migration_sql = repo_root / "db/migrations/V001__auth_password_hashes.sql"
 
     assert DEMO_PASSWORD_HASH in seed_sql.read_text()
-    assert DEMO_PASSWORD_HASH in migration_sql.read_text()
+    migration_text = migration_sql.read_text()
+    assert DEMO_PASSWORD_HASH in migration_text
+    assert "t.tenant_code = 'DEFAULT'" in migration_text
+    assert "u.tenant_id = t.tenant_id" in migration_text
+    assert "u.password_hash IS NULL" in migration_text
 
 
 def test_expired_token_uses_stable_error_code():
