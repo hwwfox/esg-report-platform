@@ -9,6 +9,12 @@ from app.modules.auth.dependencies import require_permission
 
 router = APIRouter(prefix="/api/v1/projects", tags=["报告项目"])
 
+
+def user_can_access_enterprise(user: dict, enterprise_id: str) -> bool:
+    allowed_enterprises = {item["enterprise_id"] for item in user.get("enterprises", [])}
+    return enterprise_id in allowed_enterprises
+
+
 @router.get("/{project_id}/dashboard")
 def dashboard(project_id: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:read"))):
     row = db.execute(text("""
@@ -20,8 +26,7 @@ def dashboard(project_id: str, request: Request, db: Session = Depends(get_db), 
         write_audit_log(db, tenant_id=user["current_tenant_id"], user_id=user["user_id"], user_name=user["name"], action_type="security.project_access_denied", object_type="report_projects", description="项目不存在或跨租户访问被拒绝")
         db.commit()
         raise ApiError(403, "AUTH_FORBIDDEN", "Access denied")
-    allowed_enterprises = {item["enterprise_id"] for item in user.get("enterprise_access", [])}
-    if allowed_enterprises and row["enterprise_id"] not in allowed_enterprises:
+    if not user_can_access_enterprise(user, row["enterprise_id"]):
         write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=row["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="security.project_access_denied", object_type="report_projects", object_id=project_id, description="无企业访问范围")
         db.commit()
         raise ApiError(403, "AUTH_FORBIDDEN", "Access denied")
