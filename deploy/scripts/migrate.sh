@@ -11,3 +11,9 @@ if [ -f "db/ddl/ESG_PostgreSQL_DDL_v0.1.sql" ]; then
 else
   echo "No DDL file found. Skipping."
 fi
+if [ -d "db/migrations" ]; then
+  while IFS= read -r migration; do
+    echo "Applying migration ${migration}..."
+    psql "$DB_URL" -f "$migration"
+  done < <(find db/migrations -maxdepth 1 -type f -name 'V[0-9][0-9][0-9]__*.sql' | sort)
+fi

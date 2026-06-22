@@ -4,7 +4,6 @@ from app.core.errors import ApiError
 from app.core.security import create_token, verify_password
 from app.modules.audit.service import write_audit_log
 
-DEMO_PASSWORD = "ChangeMe123!"
 
 def _row_to_dict(row):
     return dict(row._mapping) if row else None
@@ -52,7 +51,7 @@ def build_current_user(db: Session, user_id: str, tenant_id: str) -> dict:
 
 def login(db: Session, *, email: str, password: str, request) -> dict:
     user = get_user_by_email(db, email)
-    if not user or not (verify_password(password, user.get("password_hash")) or (user.get("password_hash") is None and password == DEMO_PASSWORD)):
+    if not user or not (verify_password(password, user.get("password_hash"))):
         if user:
             write_audit_log(db, tenant_id=str(user["tenant_id"]), user_id=str(user["user_id"]), user_name=user["name"], action_type="auth.login_failed", object_type="users", object_id=str(user["user_id"]), description="登录失败", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
             db.commit()

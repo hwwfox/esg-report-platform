@@ -53,8 +53,8 @@ SET role_name = EXCLUDED.role_name,
 -- 3. 示例用户
 -- =========================================================
 
-INSERT INTO users (tenant_id, name, email, phone, status)
-SELECT t.tenant_id, v.name, v.email, v.phone, 'active'
+INSERT INTO users (tenant_id, name, email, phone, password_hash, status)
+SELECT t.tenant_id, v.name, v.email, v.phone, 'pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$TYS3ovZYqJ2bTLGKaJj2isqd+keujkLbW75Xrp0lJf8=', 'active'
 FROM tenants t
 CROSS JOIN (
   VALUES
@@ -70,6 +70,7 @@ WHERE t.tenant_code = 'DEFAULT'
 ON CONFLICT (tenant_id, email) DO UPDATE
 SET name = EXCLUDED.name,
     phone = EXCLUDED.phone,
+    password_hash = EXCLUDED.password_hash,
     status = 'active',
     updated_at = now();
 
