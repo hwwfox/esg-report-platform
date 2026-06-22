@@ -54,7 +54,7 @@ SET role_name = EXCLUDED.role_name,
 -- =========================================================
 
 INSERT INTO users (tenant_id, name, email, phone, password_hash, status)
-SELECT t.tenant_id, v.name, v.email, v.phone, 'pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$Y+tg83U5LG8+OiidKae8grhDMIM+C98K3GtnQMvJ1dY=', 'active'
+SELECT t.tenant_id, v.name, v.email, v.phone, 'pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$TYS3ovZYqJ2bTLGKaJj2isqd+keujkLbW75Xrp0lJf8=', 'active'
 FROM tenants t
 CROSS JOIN (
   VALUES

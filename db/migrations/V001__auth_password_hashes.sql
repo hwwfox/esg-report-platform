@@ -4,7 +4,7 @@ BEGIN;
 SET search_path TO esg, public;
 
 UPDATE users
-SET password_hash = 'pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$Y+tg83U5LG8+OiidKae8grhDMIM+C98K3GtnQMvJ1dY='
+SET password_hash = 'pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$TYS3ovZYqJ2bTLGKaJj2isqd+keujkLbW75Xrp0lJf8='
 WHERE email IN (
   'admin@example.com',
   'project.owner@example.com',
