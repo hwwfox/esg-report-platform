@@ -48,7 +48,7 @@ def build_current_user(db: Session, user_id: str, tenant_id: str) -> dict:
         raise ApiError(401, "AUTH_UNAUTHORIZED", "Authenticated user is unavailable")
     roles, permissions = roles_and_permissions(db, tenant_id, user_id)
     enterprises = enterprise_access(db, tenant_id, user_id)
-    return {"user_id": user["user_id"], "name": user["name"], "email": user["email"], "current_tenant_id": user["tenant_id"], "current_enterprise_id": enterprises[0]["enterprise_id"] if enterprises else None, "roles": roles, "permissions": permissions, "enterprise_access": enterprises}
+    return {"user_id": user["user_id"], "name": user["name"], "email": user["email"], "current_tenant_id": user["tenant_id"], "current_enterprise_id": enterprises[0]["enterprise_id"] if enterprises else None, "roles": roles, "permissions": permissions, "enterprises": enterprises}
 
 def login(db: Session, *, email: str, password: str, request) -> dict:
     user = get_user_by_email(db, email)

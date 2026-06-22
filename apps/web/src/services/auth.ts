@@ -14,7 +14,7 @@ export interface CurrentUser {
   current_enterprise_id?: string | null;
   roles: string[];
   permissions: string[];
-  enterprise_access: Array<{ enterprise_id: string; enterprise_name: string; enterprise_code?: string; access_scope: string }>;
+  enterprises: Array<{ enterprise_id: string; enterprise_name: string; enterprise_code?: string; access_scope: string }>;
 }
 
 const API_BASE = '/api/v1';
