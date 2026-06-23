@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { WorkbenchPage } from './pages/WorkbenchPage';
+import { EnterpriseProjectPage } from './pages/EnterpriseProjectPage';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { useAuthStore } from './stores/authStore';
 
@@ -15,6 +16,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/workbench" element={<WorkbenchPage />} />
+      <Route path="/enterprise-projects" element={<EnterpriseProjectPage />} />
       <Route path="/workbench" element={<ProtectedRoute><WorkbenchPage /></ProtectedRoute>} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="*" element={<Navigate to="/workbench" replace />} />
