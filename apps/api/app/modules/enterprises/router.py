@@ -26,6 +26,18 @@ class EnterprisePayload(BaseModel):
     status: str = "active"
 
 
+class EnterpriseUpdatePayload(BaseModel):
+    enterprise_name: str | None = Field(default=None, min_length=1, max_length=255)
+    enterprise_short_name: str | None = None
+    enterprise_code: str | None = None
+    stock_code: str | None = None
+    exchange: str | None = None
+    country_or_region: str | None = None
+    industry_description: str | None = None
+    main_business: str | None = None
+    status: str | None = None
+
+
 def _enterprise_select(where: str) -> str:
     return f"""
         SELECT enterprise_id::text, tenant_id::text, enterprise_code, enterprise_name, enterprise_short_name,
@@ -41,8 +53,8 @@ def _get_enterprise(db: Session, tenant_id: str, enterprise_id: str) -> dict | N
     return dict(row) if row else None
 
 
-def _deny_enterprise(request: Request, db: Session, user: dict, enterprise_id: str | None = None) -> None:
-    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
+def _deny_enterprise(request: Request, db: Session, user: dict, enterprise_id: str | None = None, *, verified_enterprise_id: str | None = None) -> None:
+    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=verified_enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
     db.commit()
     raise ApiError(403, "AUTH_FORBIDDEN", "Access denied")
 
@@ -103,17 +115,26 @@ def get_enterprise(enterprise_id: str, request: Request, db: Session = Depends(g
 
 
 @router.patch("/{enterprise_id}")
-def update_enterprise(enterprise_id: str, payload: EnterprisePayload, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("enterprise:update"))):
+def update_enterprise(enterprise_id: str, payload: EnterpriseUpdatePayload, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("enterprise:update"))):
     if not user_can_access_enterprise(user, enterprise_id):
         _deny_enterprise(request, db, user, enterprise_id)
-    if payload.status not in {"active", "inactive"}:
+    enterprise = _get_enterprise(db, user["current_tenant_id"], enterprise_id)
+    if not enterprise:
+        _deny_enterprise(request, db, user, enterprise_id)
+    updates = payload.model_dump(exclude_unset=True)
+    if "enterprise_name" in updates and updates["enterprise_name"] is None:
+        raise ApiError(400, "ENTERPRISE_NAME_REQUIRED", "Enterprise name is required")
+    if "status" in updates and updates["status"] not in {"active", "inactive"}:
         raise ApiError(400, "ENTERPRISE_INVALID_STATUS", "Invalid enterprise status")
-    db.execute(text("""
-        UPDATE enterprises SET enterprise_code=:enterprise_code, enterprise_name=:enterprise_name, enterprise_short_name=:enterprise_short_name,
-          stock_code=:stock_code, exchange=:exchange, country_or_region=:country_or_region, industry_description=:industry_description,
-          main_business=:main_business, status=:status, updated_at=now()
-        WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id
-    """), {"tenant_id": user["current_tenant_id"], "enterprise_id": enterprise_id, **payload.model_dump()})
-    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="enterprise.updated", object_type="enterprises", object_id=enterprise_id, description="更新企业")
-    db.commit()
+    if not updates:
+        return ok(enterprise, request_id=request.state.request_id)
+    allowed = {"enterprise_code", "enterprise_name", "enterprise_short_name", "stock_code", "exchange", "country_or_region", "industry_description", "main_business", "status"}
+    set_clause = ", ".join(f"{key}=:{key}" for key in updates if key in allowed)
+    try:
+        db.execute(text(f"UPDATE enterprises SET {set_clause}, updated_at=now() WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id"), {"tenant_id": user["current_tenant_id"], "enterprise_id": enterprise_id, **updates})
+        write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="enterprise.updated", object_type="enterprises", object_id=enterprise_id, description="更新企业")
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ApiError(400, "ENTERPRISE_DUPLICATE", "Enterprise code or name already exists") from exc
     return ok(_get_enterprise(db, user["current_tenant_id"], enterprise_id), request_id=request.state.request_id)

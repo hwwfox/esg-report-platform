@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.core.errors import ApiError
-from app.modules.projects.router import _validate_project_user_scope, validate_report_year, validate_status_transition
+from app.modules.projects.router import _validate_project_user_scope, validate_project_required_update_fields, validate_report_language, validate_report_year, validate_status_transition
 
 
 class _ScalarResult:
@@ -80,3 +80,24 @@ def test_project_member_org_unit_must_belong_to_enterprise_scope():
         assert exc.code == "PROJECT_MEMBER_ORG_UNIT_INVALID"
     else:
         raise AssertionError("Cross-enterprise org units should be rejected")
+
+
+def test_project_report_language_must_match_contract_enum():
+    validate_report_language("zh")
+    validate_report_language("en")
+    validate_report_language("bilingual")
+    try:
+        validate_report_language("fr")
+    except ApiError as exc:
+        assert exc.code == "PROJECT_INVALID_REPORT_LANGUAGE"
+    else:
+        raise AssertionError("Unsupported report language should raise ApiError")
+
+
+def test_project_patch_required_fields_cannot_be_null():
+    try:
+        validate_project_required_update_fields({"project_name": None})
+    except ApiError as exc:
+        assert exc.code == "PROJECT_REQUIRED_FIELD_NULL"
+    else:
+        raise AssertionError("Required project fields should reject explicit null updates")
