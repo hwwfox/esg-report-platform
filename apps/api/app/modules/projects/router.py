@@ -14,6 +14,8 @@ from app.modules.auth.dependencies import require_permission
 
 router = APIRouter(prefix="/api/v1/projects", tags=["报告项目"])
 
+REPORT_LANGUAGES = {"zh", "en", "bilingual"}
+
 PROJECT_STATUSES = {
     "draft", "peer_analysis", "topic_confirmation", "task_assignment", "data_collection",
     "department_review", "writing", "chapter_review", "full_review", "export_ready", "completed", "archived",
@@ -80,6 +82,11 @@ def validate_report_year(year: int) -> None:
         raise ApiError(400, "PROJECT_INVALID_REPORT_YEAR", "Report year is invalid")
 
 
+def validate_report_language(report_language: str | None) -> None:
+    if report_language is not None and report_language not in REPORT_LANGUAGES:
+        raise ApiError(400, "PROJECT_INVALID_REPORT_LANGUAGE", "Report language is invalid")
+
+
 def validate_status_transition(current_status: str, target_status: str) -> None:
     if target_status not in PROJECT_STATUSES:
         raise ApiError(400, "PROJECT_INVALID_STATUS", "Invalid project status")
@@ -114,7 +121,7 @@ def _authorize_project(request: Request, db: Session, user: dict, project_id: st
 def _authorize_enterprise(request: Request, db: Session, user: dict, enterprise_id: str) -> None:
     row = db.execute(text("SELECT enterprise_id::text FROM enterprises WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id"), {"tenant_id": user["current_tenant_id"], "enterprise_id": enterprise_id}).first()
     if not row or not user_can_access_enterprise(user, enterprise_id):
-        write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围")
+        write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=row[0] if row else None, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围")
         db.commit()
         raise ApiError(403, "AUTH_FORBIDDEN", "Access denied")
 
@@ -147,6 +154,31 @@ def _validate_project_user_scope(db: Session, *, tenant_id: str, enterprise_id: 
             raise ApiError(400, "PROJECT_MEMBER_ORG_UNIT_INVALID", "Project member organization unit is invalid")
 
 
+def _upsert_project_member(db: Session, *, tenant_id: str, project_id: str, user_id: str, project_role: str, org_unit_id: str | None) -> None:
+    existing = db.execute(text("""
+        SELECT project_member_id::text
+        FROM project_members
+        WHERE tenant_id=:tenant_id
+          AND project_id=:project_id
+          AND user_id=:user_id
+          AND project_role=:project_role
+          AND org_unit_id IS NOT DISTINCT FROM :org_unit_id
+        ORDER BY created_at DESC
+        LIMIT 1
+    """), {"tenant_id": tenant_id, "project_id": project_id, "user_id": user_id, "project_role": project_role, "org_unit_id": org_unit_id}).mappings().first()
+    if existing:
+        db.execute(text("""
+            UPDATE project_members
+            SET status='active'
+            WHERE tenant_id=:tenant_id AND project_member_id=:project_member_id
+        """), {"tenant_id": tenant_id, "project_member_id": existing["project_member_id"]})
+        return
+    db.execute(text("""
+        INSERT INTO project_members (tenant_id, project_id, user_id, project_role, org_unit_id, status)
+        VALUES (:tenant_id, :project_id, :user_id, :project_role, :org_unit_id, 'active')
+    """), {"tenant_id": tenant_id, "project_id": project_id, "user_id": user_id, "project_role": project_role, "org_unit_id": org_unit_id})
+
+
 @router.get("")
 def list_projects(request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:read")), enterprise_id: str | None = None, report_year: int | None = None, project_status: str | None = None, keyword: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)):
     allowed = [item["enterprise_id"] for item in user.get("enterprises", [])]
@@ -176,6 +208,7 @@ def list_projects(request: Request, db: Session = Depends(get_db), user: dict = 
 @router.post("")
 def create_project(payload: ProjectPayload, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:create"))):
     validate_report_year(payload.report_year)
+    validate_report_language(payload.report_language)
     if not payload.project_owner_user_id:
         raise ApiError(400, "PROJECT_OWNER_REQUIRED", "Project owner is required")
     _authorize_enterprise(request, db, user, payload.enterprise_id)
@@ -188,11 +221,7 @@ def create_project(payload: ProjectPayload, request: Request, db: Session = Depe
               :reporting_period_start, :reporting_period_end, :report_boundary, :project_owner_user_id, :selected_standard_codes, :created_by)
             RETURNING project_id::text
         """), {"tenant_id": user["current_tenant_id"], "created_by": user["user_id"], **payload.model_dump()}).mappings().first()
-        db.execute(text("""
-            INSERT INTO project_members (tenant_id, project_id, user_id, project_role, status)
-            VALUES (:tenant_id, :project_id, :user_id, 'owner', 'active')
-            ON CONFLICT (project_id, user_id, project_role, org_unit_id) DO NOTHING
-        """), {"tenant_id": user["current_tenant_id"], "project_id": row["project_id"], "user_id": payload.project_owner_user_id})
+        _upsert_project_member(db, tenant_id=user["current_tenant_id"], project_id=row["project_id"], user_id=payload.project_owner_user_id, project_role="owner", org_unit_id=None)
         write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=payload.enterprise_id, project_id=row["project_id"], user_id=user["user_id"], user_name=user["name"], action_type="project.created", object_type="report_projects", object_id=row["project_id"], description="创建报告项目")
         db.commit()
     except IntegrityError as exc:
@@ -212,21 +241,30 @@ def update_project(project_id: str, payload: ProjectUpdatePayload, request: Requ
     updates = payload.model_dump(exclude_unset=True)
     if "report_year" in updates and updates["report_year"] is not None:
         validate_report_year(updates["report_year"])
+    if "report_language" in updates:
+        validate_report_language(updates["report_language"])
+    if "project_owner_user_id" in updates and not updates["project_owner_user_id"]:
+        raise ApiError(400, "PROJECT_OWNER_REQUIRED", "Project owner is required")
     if updates.get("project_owner_user_id"):
         _validate_project_user_scope(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], user_id=updates["project_owner_user_id"])
     if not updates:
         return ok(project, request_id=request.state.request_id)
     allowed = {"project_name", "report_year", "report_type", "report_language", "reporting_period_start", "reporting_period_end", "report_boundary", "selected_standard_codes", "project_owner_user_id"}
     set_clause = ", ".join(f"{key}=:{key}" for key in updates if key in allowed)
-    db.execute(text(f"UPDATE report_projects SET {set_clause}, updated_at=now() WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id AND project_id=:project_id"), {"tenant_id": user["current_tenant_id"], "enterprise_id": project["enterprise_id"], "project_id": project_id, **updates})
-    if updates.get("project_owner_user_id"):
-        db.execute(text("""
-            INSERT INTO project_members (tenant_id, project_id, user_id, project_role, status)
-            VALUES (:tenant_id, :project_id, :user_id, 'owner', 'active')
-            ON CONFLICT (project_id, user_id, project_role, org_unit_id) DO UPDATE SET status='active'
-        """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "user_id": updates["project_owner_user_id"]})
-    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="project.updated", object_type="report_projects", object_id=project_id, description="更新报告项目")
-    db.commit()
+    try:
+        db.execute(text(f"UPDATE report_projects SET {set_clause}, updated_at=now() WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id AND project_id=:project_id"), {"tenant_id": user["current_tenant_id"], "enterprise_id": project["enterprise_id"], "project_id": project_id, **updates})
+        if updates.get("project_owner_user_id"):
+            db.execute(text("""
+                UPDATE project_members
+                SET status='inactive'
+                WHERE tenant_id=:tenant_id AND project_id=:project_id AND project_role='owner' AND user_id<>:user_id
+            """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "user_id": updates["project_owner_user_id"]})
+            _upsert_project_member(db, tenant_id=user["current_tenant_id"], project_id=project_id, user_id=updates["project_owner_user_id"], project_role="owner", org_unit_id=None)
+        write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="project.updated", object_type="report_projects", object_id=project_id, description="更新报告项目")
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ApiError(400, "PROJECT_DUPLICATE", "Project already exists or references invalid data") from exc
     return ok(_get_project(db, user["current_tenant_id"], project_id), request_id=request.state.request_id)
 
 
@@ -254,7 +292,7 @@ def list_members(project_id: str, request: Request, db: Session = Depends(get_db
                pm.org_unit_id::text, pm.status::text, pm.created_at
         FROM project_members pm
         JOIN users u ON u.tenant_id=pm.tenant_id AND u.user_id=pm.user_id
-        WHERE pm.tenant_id=:tenant_id AND pm.project_id=:project_id
+        WHERE pm.tenant_id=:tenant_id AND pm.project_id=:project_id AND pm.status='active'
         ORDER BY pm.created_at DESC
     """), {"tenant_id": user["current_tenant_id"], "project_id": project["project_id"]}).mappings().all()
     return ok({"items": [dict(r) for r in rows]}, request_id=request.state.request_id)
@@ -264,11 +302,7 @@ def list_members(project_id: str, request: Request, db: Session = Depends(get_db
 def add_member(project_id: str, payload: ProjectMemberPayload, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:update"))):
     project = _authorize_project(request, db, user, project_id)
     _validate_project_user_scope(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], user_id=payload.user_id, org_unit_id=payload.org_unit_id)
-    db.execute(text("""
-        INSERT INTO project_members (tenant_id, project_id, user_id, project_role, org_unit_id, status)
-        VALUES (:tenant_id, :project_id, :user_id, :project_role, :org_unit_id, 'active')
-        ON CONFLICT (project_id, user_id, project_role, org_unit_id) DO UPDATE SET status='active'
-    """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, **payload.model_dump()})
+    _upsert_project_member(db, tenant_id=user["current_tenant_id"], project_id=project_id, user_id=payload.user_id, project_role=payload.project_role, org_unit_id=payload.org_unit_id)
     write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="project.member_added", object_type="project_members", object_id=payload.user_id, description="添加项目成员")
     db.commit()
     return list_members(project_id, request, db, user)

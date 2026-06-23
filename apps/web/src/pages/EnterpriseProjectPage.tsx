@@ -15,6 +15,7 @@ export function EnterpriseProjectPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [projectForm] = Form.useForm();
 
   const refresh = async (enterpriseId?: string) => {
     if (!accessToken) return;
@@ -40,6 +41,10 @@ export function EnterpriseProjectPage() {
       }
     })();
   }, [accessToken]);
+
+  useEffect(() => {
+    projectForm.setFieldsValue({ enterprise_id: selectedEnterpriseId });
+  }, [projectForm, selectedEnterpriseId]);
 
   const handleEnterpriseCreate = async (values: { enterprise_name: string; enterprise_short_name?: string }) => {
     if (!accessToken) return;
@@ -95,7 +100,7 @@ export function EnterpriseProjectPage() {
           </Col>
           <Col span={8}>
             <Card title="项目列表与创建">
-              <Form layout="vertical" onFinish={handleProjectCreate} initialValues={{ enterprise_id: selectedEnterpriseId, report_year: new Date().getFullYear() }}>
+              <Form form={projectForm} layout="vertical" onFinish={handleProjectCreate} initialValues={{ enterprise_id: selectedEnterpriseId, report_year: new Date().getFullYear() }}>
                 <Form.Item name="enterprise_id" label="所属企业" rules={[{ required: true, message: '请选择企业' }]}><Select options={enterprises.map((item) => ({ value: item.enterprise_id, label: item.enterprise_name }))} /></Form.Item>
                 <Form.Item name="project_name" label="项目名称" rules={[{ required: true, message: '请输入项目名称' }]}><Input /></Form.Item>
                 <Form.Item name="report_year" label="报告年度" rules={[{ required: true, message: '请输入年度' }]}><InputNumber min={2000} max={new Date().getFullYear() + 1} style={{ width: '100%' }} /></Form.Item>
