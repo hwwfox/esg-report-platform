@@ -53,6 +53,8 @@ def _get_enterprise(db: Session, tenant_id: str, enterprise_id: str) -> dict | N
     return dict(row) if row else None
 
 
+def _deny_enterprise(request: Request, db: Session, user: dict, enterprise_id: str | None = None, *, verified_enterprise_id: str | None = None) -> None:
+    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=verified_enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
 def _deny_enterprise(request: Request, db: Session, user: dict, enterprise_id: str | None = None) -> None:
     write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=None, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
     db.commit()
@@ -122,6 +124,8 @@ def update_enterprise(enterprise_id: str, payload: EnterpriseUpdatePayload, requ
     if not enterprise:
         _deny_enterprise(request, db, user, enterprise_id)
     updates = payload.model_dump(exclude_unset=True)
+    if "enterprise_name" in updates and updates["enterprise_name"] is None:
+        raise ApiError(400, "ENTERPRISE_NAME_REQUIRED", "Enterprise name is required")
     if "status" in updates and updates["status"] not in {"active", "inactive"}:
         raise ApiError(400, "ENTERPRISE_INVALID_STATUS", "Invalid enterprise status")
     if not updates:
@@ -129,6 +133,7 @@ def update_enterprise(enterprise_id: str, payload: EnterpriseUpdatePayload, requ
     allowed = {"enterprise_code", "enterprise_name", "enterprise_short_name", "stock_code", "exchange", "country_or_region", "industry_description", "main_business", "status"}
     set_clause = ", ".join(f"{key}=:{key}" for key in updates if key in allowed)
     try:
+        db.execute(text(f"UPDATE enterprises SET {set_clause}, updated_at=now() WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id"), {"tenant_id": user["current_tenant_id"], "enterprise_id": enterprise_id, **updates})
         db.execute(text(f"""
             UPDATE enterprises SET {set_clause}, updated_at=now()
             WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id

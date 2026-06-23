@@ -82,6 +82,17 @@ def validate_report_year(year: int) -> None:
         raise ApiError(400, "PROJECT_INVALID_REPORT_YEAR", "Report year is invalid")
 
 
+def validate_report_language(report_language: str) -> None:
+    if report_language not in REPORT_LANGUAGES:
+        raise ApiError(400, "PROJECT_INVALID_REPORT_LANGUAGE", "Report language is invalid")
+
+
+def validate_project_required_update_fields(updates: dict) -> None:
+    required_fields = {"project_name", "report_year", "report_type", "report_language"}
+    if any(field in updates and updates[field] is None for field in required_fields):
+        raise ApiError(400, "PROJECT_REQUIRED_FIELD_NULL", "Required project fields cannot be null")
+
+
 def validate_report_language(report_language: str | None) -> None:
     if report_language is not None and report_language not in REPORT_LANGUAGES:
         raise ApiError(400, "PROJECT_INVALID_REPORT_LANGUAGE", "Report language is invalid")
@@ -121,6 +132,7 @@ def _authorize_project(request: Request, db: Session, user: dict, project_id: st
 def _authorize_enterprise(request: Request, db: Session, user: dict, enterprise_id: str) -> None:
     row = db.execute(text("SELECT enterprise_id::text FROM enterprises WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id"), {"tenant_id": user["current_tenant_id"], "enterprise_id": enterprise_id}).first()
     if not row or not user_can_access_enterprise(user, enterprise_id):
+        write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id if row else None, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围")
         write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=row[0] if row else None, user_id=user["user_id"], user_name=user["name"], action_type="security.enterprise_access_denied", object_type="enterprises", object_id=enterprise_id, description="企业不存在或无访问范围")
         db.commit()
         raise ApiError(403, "AUTH_FORBIDDEN", "Access denied")
@@ -155,6 +167,7 @@ def _validate_project_user_scope(db: Session, *, tenant_id: str, enterprise_id: 
 
 
 def _upsert_project_member(db: Session, *, tenant_id: str, project_id: str, user_id: str, project_role: str, org_unit_id: str | None) -> None:
+    existing_rows = db.execute(text("""
     existing = db.execute(text("""
         SELECT project_member_id::text
         FROM project_members
@@ -164,6 +177,10 @@ def _upsert_project_member(db: Session, *, tenant_id: str, project_id: str, user
           AND project_role=:project_role
           AND org_unit_id IS NOT DISTINCT FROM :org_unit_id
         ORDER BY created_at DESC
+    """), {"tenant_id": tenant_id, "project_id": project_id, "user_id": user_id, "project_role": project_role, "org_unit_id": org_unit_id}).mappings().all()
+    if existing_rows:
+        active_member_id = existing_rows[0]["project_member_id"]
+        duplicate_member_ids = [row["project_member_id"] for row in existing_rows[1:]]
         LIMIT 1
     """), {"tenant_id": tenant_id, "project_id": project_id, "user_id": user_id, "project_role": project_role, "org_unit_id": org_unit_id}).mappings().first()
     if existing:
@@ -171,6 +188,13 @@ def _upsert_project_member(db: Session, *, tenant_id: str, project_id: str, user
             UPDATE project_members
             SET status='active'
             WHERE tenant_id=:tenant_id AND project_member_id=:project_member_id
+        """), {"tenant_id": tenant_id, "project_member_id": active_member_id})
+        if duplicate_member_ids:
+            db.execute(text("""
+                UPDATE project_members
+                SET status='inactive'
+                WHERE tenant_id=:tenant_id AND project_member_id = ANY(:project_member_ids)
+            """), {"tenant_id": tenant_id, "project_member_ids": duplicate_member_ids})
         """), {"tenant_id": tenant_id, "project_member_id": existing["project_member_id"]})
         return
     db.execute(text("""
@@ -239,10 +263,14 @@ def get_project(project_id: str, request: Request, db: Session = Depends(get_db)
 def update_project(project_id: str, payload: ProjectUpdatePayload, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:update"))):
     project = _authorize_project(request, db, user, project_id)
     updates = payload.model_dump(exclude_unset=True)
-    if "report_year" in updates and updates["report_year"] is not None:
+    validate_project_required_update_fields(updates)
+    if "report_year" in updates:
         validate_report_year(updates["report_year"])
     if "report_language" in updates:
         validate_report_language(updates["report_language"])
+    if "project_owner_user_id" in updates:
+        if not updates["project_owner_user_id"]:
+            raise ApiError(400, "PROJECT_OWNER_REQUIRED", "Project owner is required")
     if "project_owner_user_id" in updates and not updates["project_owner_user_id"]:
         raise ApiError(400, "PROJECT_OWNER_REQUIRED", "Project owner is required")
     if updates.get("project_owner_user_id"):
@@ -253,6 +281,14 @@ def update_project(project_id: str, payload: ProjectUpdatePayload, request: Requ
     set_clause = ", ".join(f"{key}=:{key}" for key in updates if key in allowed)
     try:
         db.execute(text(f"UPDATE report_projects SET {set_clause}, updated_at=now() WHERE tenant_id=:tenant_id AND enterprise_id=:enterprise_id AND project_id=:project_id"), {"tenant_id": user["current_tenant_id"], "enterprise_id": project["enterprise_id"], "project_id": project_id, **updates})
+        if "project_owner_user_id" in updates:
+            db.execute(text("""
+                UPDATE project_members
+                SET status='inactive'
+                WHERE tenant_id=:tenant_id
+                  AND project_id=:project_id
+                  AND project_role='owner'
+                  AND user_id<>:user_id
         if updates.get("project_owner_user_id"):
             db.execute(text("""
                 UPDATE project_members

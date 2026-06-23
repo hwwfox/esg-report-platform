@@ -1,0 +1,8 @@
+{
+  "description": "Reviewable fixtures for project detail, status transition, and member-management endpoints. These JSON files are tracked directly so GitHub can render diffs without changing the binary archive.",
+  "files": [
+    "projects/detail.response.json",
+    "projects/status.response.json",
+    "projects/members.response.json"
+  ]
+}
