@@ -729,6 +729,135 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearerAuth: []
+  /projects/{project_id}:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 报告项目
+      summary: 获取项目详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+      security:
+      - bearerAuth: []
+    patch:
+      tags:
+      - 报告项目
+      summary: 更新项目
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/status:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    post:
+      tags:
+      - 报告项目
+      summary: 项目状态流转
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectStatusTransitionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/members:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 报告项目
+      summary: 查询项目成员
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberListResponse'
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - 报告项目
+      summary: 添加项目成员
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberCreateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberListResponse'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/members/{user_id}:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+    delete:
+      tags:
+      - 报告项目
+      summary: 移除项目成员
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+      security:
+      - bearerAuth: []
   /enterprises/{enterprise_id}/org-units/tree:
     parameters:
     - name: enterprise_id
@@ -4718,6 +4847,82 @@ components:
           type: object
           additionalProperties:
             type: boolean
+    ProjectUpdateRequest:
+      type: object
+      properties:
+        project_name:
+          type: string
+        report_year:
+          type: integer
+        report_type:
+          type: string
+        report_language:
+          type: string
+          enum:
+          - zh
+          - en
+          - bilingual
+        reporting_period_start:
+          type: string
+          format: date
+        reporting_period_end:
+          type: string
+          format: date
+        report_boundary:
+          type: string
+        selected_standard_codes:
+          type: array
+          items:
+            type: string
+        project_owner_user_id:
+          type: string
+    ProjectStatusTransitionRequest:
+      type: object
+      required:
+      - target_status
+      properties:
+        target_status:
+          type: string
+    ProjectMemberCreateRequest:
+      type: object
+      required:
+      - user_id
+      - project_role
+      properties:
+        user_id:
+          type: string
+        project_role:
+          type: string
+        org_unit_id:
+          type: string
+          nullable: true
+    ProjectMember:
+      type: object
+      properties:
+        project_member_id:
+          type: string
+        project_id:
+          type: string
+        user_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        project_role:
+          type: string
+        org_unit_id:
+          type: string
+          nullable: true
+        status:
+          type: string
+    ProjectMemberListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMember'
     Project:
       type: object
       properties:

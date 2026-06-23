@@ -1,6 +1,6 @@
-import { Alert, Button, Card, Descriptions, Spin, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Space, Spin, Typography } from 'antd';
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { getCurrentUser } from '../services/auth';
 import { useAuthStore } from '../stores/authStore';
 
@@ -26,7 +26,7 @@ export function WorkbenchPage() {
 
   return (
     <main style={{ padding: 24 }}>
-      <Card extra={<Button onClick={logout}>退出登录</Button>}>
+      <Card extra={<Space><Link to="/enterprise-projects">企业与项目</Link><Button onClick={logout}>退出登录</Button></Space>}>
         <Typography.Title level={2}>工作台</Typography.Title>
         {currentUser && (
           <Descriptions bordered column={1}>
