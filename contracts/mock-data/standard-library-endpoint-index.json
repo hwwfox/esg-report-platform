@@ -1,0 +1,9 @@
+{
+  "description": "Reviewable fixtures for standard library detail, clause, and mapping endpoints.",
+  "files": [
+    "standards/detail.response.json",
+    "standards/clauses.response.json",
+    "standards/standard-topic-maps.response.json",
+    "standards/clause-metrics.response.json"
+  ]
+}

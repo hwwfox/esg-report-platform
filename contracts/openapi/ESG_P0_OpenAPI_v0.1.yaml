@@ -1061,6 +1061,258 @@ paths:
           type: string
       security:
       - bearerAuth: []
+  /standards/{standard_code}:
+    parameters:
+    - name: standard_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询标准详情和版本
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardDetailResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /standards/{standard_code}/versions/{version_code}/clauses:
+    parameters:
+    - name: standard_code
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: version_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询标准版本条款
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardClauseListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /standards/{standard_code}/versions/{version_code}/topics:
+    parameters:
+    - name: standard_code
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: version_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询标准-议题映射
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardTopicMapListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /standards/import-jobs:
+    post:
+      tags:
+      - 标准议题指标
+      summary: 创建标准库导入任务
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardImportJobRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardImportJobResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /topics/{topic_code}:
+    parameters:
+    - name: topic_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询议题详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /metrics/{metric_code}:
+    parameters:
+    - name: metric_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询指标详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metric'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /clauses/{clause_code}/metrics:
+    parameters:
+    - name: clause_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询条款-指标映射
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClauseMetricMapResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
   /topics:
     get:
       tags:
@@ -5163,6 +5415,118 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Metric'
+    StandardVersion:
+      type: object
+      properties:
+        standard_version_id:
+          type: string
+        standard_version_code:
+          type: string
+        version_name:
+          type: string
+        version_no:
+          type: string
+        effective_date:
+          type: string
+          format: date
+        is_current:
+          type: boolean
+        status:
+          type: string
+    StandardDetailResponse:
+      allOf:
+      - $ref: '#/components/schemas/Standard'
+      - type: object
+        properties:
+          versions:
+            type: array
+            items:
+              $ref: '#/components/schemas/StandardVersion'
+    StandardClause:
+      type: object
+      properties:
+        clause_code:
+          type: string
+        clause_no:
+          type: string
+        clause_title:
+          type: string
+        clause_level:
+          type: integer
+        clause_text:
+          type: string
+        disclosure_type:
+          type: string
+        is_required:
+          type: string
+        status:
+          type: string
+    StandardClauseListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardClause'
+        total:
+          type: integer
+    StandardTopicMap:
+      type: object
+      properties:
+        topic_code:
+          type: string
+        topic_name:
+          type: string
+        topic_category:
+          type: string
+        related_clause_codes:
+          type: array
+          items:
+            type: string
+        is_key_topic:
+          type: boolean
+        status:
+          type: string
+    StandardTopicMapListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardTopicMap'
+    ClauseMetricMapResponse:
+      type: object
+      properties:
+        clause_code:
+          type: string
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metric'
+    StandardImportJobRequest:
+      type: object
+      required:
+      - standard_code
+      properties:
+        standard_code:
+          type: string
+        source_file_id:
+          type: string
+        import_mode:
+          type: string
+    StandardImportJobResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        job_type:
+          type: string
+        job_status:
+          type: string
+        progress:
+          type: integer
+        request_payload:
+          type: object
     GicsIdentifyRequest:
       type: object
       properties:

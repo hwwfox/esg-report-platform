@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "request_id": "req_mock_clause_metrics",
+  "data": {
+    "clause_code": "GRI_2_7",
+    "metrics": [
+      {
+        "map_id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+        "metric_code": "EMP_TOTAL",
+        "metric_name": "员工总人数",
+        "metric_type": "quantitative",
+        "default_unit": "人",
+        "disclosure_requirement_type": "required",
+        "standard_specific_instruction": "按雇佣类型和地区汇总",
+        "source_required": true
+      }
+    ]
+  }
+}
