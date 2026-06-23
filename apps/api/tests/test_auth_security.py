@@ -1,4 +1,3 @@
-import time
 from pathlib import Path
 from app.core.security import create_token, decode_token, hash_password, verify_password
 from app.core.errors import ApiError
@@ -6,6 +5,7 @@ from app.modules.projects.router import user_can_access_enterprise
 
 
 DEMO_PASSWORD_HASH = "pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$TYS3ovZYqJ2bTLGKaJj2isqd+keujkLbW75Xrp0lJf8="
+STALE_DEMO_PASSWORD_HASH = "pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$Y+tg83U5LG8+OiidKae8grhDMIM+C98K3GtnQMvJ1dY="
 
 
 def test_password_hash_round_trip():
@@ -26,7 +26,10 @@ def test_seed_sql_uses_valid_demo_password_hash():
 
     seed_text = seed_sql.read_text()
     assert DEMO_PASSWORD_HASH in seed_text
-    assert "password_hash = COALESCE(NULLIF(users.password_hash, ''), EXCLUDED.password_hash)" in seed_text
+    assert "password_hash = CASE" in seed_text
+    assert "THEN EXCLUDED.password_hash" in seed_text
+    assert "ELSE users.password_hash" in seed_text
+    assert STALE_DEMO_PASSWORD_HASH in seed_text
     migration_text = migration_sql.read_text()
     assert DEMO_PASSWORD_HASH in migration_text
     assert "t.tenant_code = 'DEFAULT'" in migration_text
