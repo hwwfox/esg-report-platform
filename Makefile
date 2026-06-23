@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: help install dev-up dev-down storage-init migrate seed db-reset api worker ai-gateway web lint typecheck test test-api test-e2e openapi-check schema-check migration-check ci-local docker-build clean
+.PHONY: help install check-docker dev-up dev-down storage-init migrate seed db-reset api worker ai-gateway web lint typecheck test test-api test-e2e openapi-check schema-check migration-check ci-local docker-build clean
 
 help:
 	@echo "ESG Report Platform commands"
@@ -22,10 +22,14 @@ install:
 	@if [ -f apps/worker/requirements.txt ]; then python -m pip install -r apps/worker/requirements.txt; fi
 	@if [ -f apps/ai-gateway/requirements.txt ]; then python -m pip install -r apps/ai-gateway/requirements.txt; fi
 
-dev-up:
+check-docker:
+	@command -v docker >/dev/null 2>&1 || { echo "Docker is required for this command. Install Docker or run this target in a Docker-enabled environment."; exit 127; }
+	@docker compose version >/dev/null 2>&1 || { echo "Docker Compose v2 is required for this command. Install the docker compose plugin or run this target in a Docker Compose-enabled environment."; exit 127; }
+
+dev-up: check-docker
 	docker compose -f docker-compose.dev.yml up -d postgres redis minio mailhog
 
-dev-down:
+dev-down: check-docker
 	docker compose -f docker-compose.dev.yml down
 
 storage-init:
@@ -37,7 +41,7 @@ migrate:
 seed:
 	bash deploy/scripts/seed.sh
 
-db-reset:
+db-reset: check-docker
 	docker compose -f docker-compose.dev.yml down -v
 	docker compose -f docker-compose.dev.yml up -d postgres redis minio mailhog
 	@echo "Waiting for PostgreSQL..." && sleep 5
