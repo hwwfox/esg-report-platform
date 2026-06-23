@@ -17,14 +17,42 @@ export interface CurrentUser {
   enterprises: Array<{ enterprise_id: string; enterprise_name: string; enterprise_code?: string; access_scope: string }>;
 }
 
+export interface RefreshTokenResponseData {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+interface ErrorPayload {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+  success?: boolean;
+}
+
+export class AuthApiError extends Error {
+  constructor(
+    public readonly code: string,
+    message?: string,
+  ) {
+    super(message ?? code);
+    this.name = 'AuthApiError';
+  }
+}
+
 const API_BASE = '/api/v1';
 
 async function parseResponse<T>(response: Response): Promise<T> {
-  const payload = await response.json();
+  const payload = (await response.json().catch(() => ({}))) as ErrorPayload & { data?: T };
   if (!response.ok || payload.success === false) {
-    throw new Error(payload.error?.code ?? 'REQUEST_FAILED');
+    const code = payload.error?.code ?? 'REQUEST_FAILED';
+    throw new AuthApiError(code, payload.error?.message ?? code);
   }
-  return payload.data as T;
+  if (payload.data === undefined) {
+    throw new AuthApiError('RESPONSE_DATA_MISSING', 'Response data is missing');
+  }
+  return payload.data;
 }
 
 export async function login(email: string, password: string): Promise<LoginResponseData> {
@@ -41,4 +69,21 @@ export async function getCurrentUser(token: string): Promise<CurrentUser> {
     headers: { Authorization: `Bearer ${token}` },
   });
   return parseResponse<CurrentUser>(response);
+}
+
+export async function refreshToken(refreshTokenValue: string): Promise<RefreshTokenResponseData> {
+  const response = await fetch(`${API_BASE}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshTokenValue }),
+  });
+  return parseResponse<RefreshTokenResponseData>(response);
+}
+
+export async function logoutRequest(token: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  await parseResponse<{ logged_out: boolean }>(response);
 }

@@ -2,23 +2,62 @@ import { Alert, Button, Card, Descriptions, Space, Spin, Typography } from 'antd
 import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { getCurrentUser } from '../services/auth';
+import { Navigate } from 'react-router-dom';
+import { AuthApiError, getCurrentUser, logoutRequest, refreshToken } from '../services/auth';
 import { useAuthStore } from '../stores/authStore';
 
 export function WorkbenchPage() {
-  const { accessToken, currentUser, setCurrentUser, logout } = useAuthStore();
+  const { accessToken, refreshToken: refreshTokenValue, currentUser, setCurrentUser, setTokens, logout } = useAuthStore();
   const [loading, setLoading] = useState(Boolean(accessToken && !currentUser));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken || currentUser) return;
-    getCurrentUser(accessToken)
-      .then(setCurrentUser)
+    let isActive = true;
+
+    const loadCurrentUser = async () => {
+      try {
+        const user = await getCurrentUser(accessToken);
+        if (isActive) setCurrentUser(user);
+      } catch (err) {
+        if (err instanceof AuthApiError && err.code === 'AUTH_TOKEN_EXPIRED' && refreshTokenValue) {
+          const tokens = await refreshToken(refreshTokenValue);
+          if (!isActive) return;
+          setTokens(tokens);
+          const user = await getCurrentUser(tokens.access_token);
+          if (isActive) setCurrentUser(user);
+          return;
+        }
+        throw err;
+      }
+    };
+
+    loadCurrentUser()
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'AUTH_UNAUTHORIZED');
+        if (!isActive) return;
+        setError(err instanceof AuthApiError ? err.code : 'AUTH_UNAUTHORIZED');
         logout();
       })
-      .finally(() => setLoading(false));
-  }, [accessToken, currentUser, logout, setCurrentUser]);
+      .finally(() => {
+        if (isActive) setLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [accessToken, currentUser, logout, refreshTokenValue, setCurrentUser, setTokens]);
+
+  const handleLogout = async () => {
+    if (!accessToken) {
+      logout();
+      return;
+    }
+    try {
+      await logoutRequest(accessToken);
+    } finally {
+      logout();
+    }
+  };
 
   if (!accessToken && !error) return <Navigate to="/login" replace />;
   if (loading) return <main style={{ padding: 24 }}><Spin /></main>;
@@ -27,6 +66,7 @@ export function WorkbenchPage() {
   return (
     <main style={{ padding: 24 }}>
       <Card extra={<Space><Link to="/enterprise-projects">企业与项目</Link><Button onClick={logout}>退出登录</Button></Space>}>
+      <Card extra={<Button onClick={handleLogout}>退出登录</Button>}>
         <Typography.Title level={2}>工作台</Typography.Title>
         {currentUser && (
           <Descriptions bordered column={1}>
