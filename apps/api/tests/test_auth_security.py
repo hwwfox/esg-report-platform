@@ -24,7 +24,9 @@ def test_seed_sql_uses_valid_demo_password_hash():
     seed_sql = repo_root / "db/seed/ESG_PostgreSQL_Seed_Data_v0.1.sql"
     migration_sql = repo_root / "db/migrations/V001__auth_password_hashes.sql"
 
-    assert DEMO_PASSWORD_HASH in seed_sql.read_text()
+    seed_text = seed_sql.read_text()
+    assert DEMO_PASSWORD_HASH in seed_text
+    assert "password_hash = COALESCE(NULLIF(users.password_hash, ''), EXCLUDED.password_hash)" in seed_text
     migration_text = migration_sql.read_text()
     assert DEMO_PASSWORD_HASH in migration_text
     assert "t.tenant_code = 'DEFAULT'" in migration_text

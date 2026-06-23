@@ -70,7 +70,7 @@ WHERE t.tenant_code = 'DEFAULT'
 ON CONFLICT (tenant_id, email) DO UPDATE
 SET name = EXCLUDED.name,
     phone = EXCLUDED.phone,
-    password_hash = EXCLUDED.password_hash,
+    password_hash = COALESCE(NULLIF(users.password_hash, ''), EXCLUDED.password_hash),
     status = 'active',
     updated_at = now();
 
