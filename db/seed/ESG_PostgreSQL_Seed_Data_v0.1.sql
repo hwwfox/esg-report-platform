@@ -70,7 +70,15 @@ WHERE t.tenant_code = 'DEFAULT'
 ON CONFLICT (tenant_id, email) DO UPDATE
 SET name = EXCLUDED.name,
     phone = EXCLUDED.phone,
-    password_hash = EXCLUDED.password_hash,
+    password_hash = CASE
+      WHEN users.password_hash IS NULL
+        OR users.password_hash = ''
+        OR users.password_hash IN (
+          'pbkdf2_sha256$120000$SMMW4Xbdu34FhUkKPIq5Mw==$Y+tg83U5LG8+OiidKae8grhDMIM+C98K3GtnQMvJ1dY='
+        )
+        THEN EXCLUDED.password_hash
+      ELSE users.password_hash
+    END,
     status = 'active',
     updated_at = now();
 
