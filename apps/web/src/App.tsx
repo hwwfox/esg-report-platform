@@ -16,9 +16,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/workbench" element={<WorkbenchPage />} />
-      <Route path="/enterprise-projects" element={<EnterpriseProjectPage />} />
       <Route path="/workbench" element={<ProtectedRoute><WorkbenchPage /></ProtectedRoute>} />
+      <Route path="/enterprise-projects" element={<ProtectedRoute><EnterpriseProjectPage /></ProtectedRoute>} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="*" element={<Navigate to="/workbench" replace />} />
     </Routes>
