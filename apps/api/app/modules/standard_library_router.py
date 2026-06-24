@@ -40,21 +40,26 @@ def _paged(rows, total: int, page: int, page_size: int) -> dict:
 def list_standards(request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("standard:read")), keyword: str | None = None, standard_type: str | None = None, applicable_market: str | None = None, status: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)):
     _validate_enum(status, STATUS_VALUES, "STANDARD_INVALID_STATUS", "status")
     clauses = [_library_visibility_clause()]
+    select_clauses = [_library_visibility_clause("s")]
     params = {"tenant_id": user["current_tenant_id"], "limit": page_size, "offset": (page - 1) * page_size}
     if keyword:
         clauses.append("(standard_code ILIKE :keyword OR standard_name ILIKE :keyword OR standard_short_name ILIKE :keyword)")
+        select_clauses.append("(s.standard_code ILIKE :keyword OR s.standard_name ILIKE :keyword OR s.standard_short_name ILIKE :keyword)")
         params["keyword"] = f"%{keyword}%"
     if standard_type:
         clauses.append("standard_type = :standard_type")
+        select_clauses.append("s.standard_type = :standard_type")
         params["standard_type"] = standard_type
     if applicable_market:
         clauses.append("applicable_market = :applicable_market")
+        select_clauses.append("s.applicable_market = :applicable_market")
         params["applicable_market"] = applicable_market
     if status:
         clauses.append("status = :status")
+        select_clauses.append("s.status = :status")
         params["status"] = status
     where = " AND ".join(clauses)
-    select_where = " AND ".join(clause.replace("tenant_id", "s.tenant_id") for clause in clauses)
+    select_where = " AND ".join(select_clauses)
     total = db.execute(text(f"SELECT count(*) FROM esg_standards WHERE {where}"), params).scalar_one()
     rows = db.execute(text(f"""
         SELECT s.standard_id::text, s.tenant_id::text, s.standard_code, s.standard_name, s.standard_short_name,

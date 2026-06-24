@@ -11,3 +11,9 @@ def test_standard_library_visibility_without_alias_is_tenant_scoped():
     clause = _library_visibility_clause()
     assert "tenant_id IS NULL" in clause
     assert "tenant_id = :tenant_id" in clause
+
+
+def test_standard_library_visibility_with_alias_keeps_tenant_bind_name():
+    clause = _library_visibility_clause("s")
+    assert ":tenant_id" in clause
+    assert ":s.tenant_id" not in clause
