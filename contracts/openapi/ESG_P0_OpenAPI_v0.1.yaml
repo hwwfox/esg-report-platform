@@ -1059,6 +1059,21 @@ paths:
         required: false
         schema:
           type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
       security:
       - bearerAuth: []
   /topics:
@@ -1113,6 +1128,21 @@ paths:
         required: false
         schema:
           type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
       security:
       - bearerAuth: []
   /metrics:
@@ -1167,6 +1197,21 @@ paths:
         required: false
         schema:
           type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
       security:
       - bearerAuth: []
   /topics/{topic_code}/recommended-metrics:
@@ -5080,6 +5125,11 @@ components:
           type: string
         applicable_market:
           type: string
+        scope_type:
+          type: string
+          enum:
+          - platform
+          - tenant
         current_version:
           type: string
         status:

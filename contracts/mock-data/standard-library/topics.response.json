@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "request_id": "req-mock-topic-list",
+  "data": {
+    "items": [
+      {
+        "topic_code": "TOPIC_GHG_EMISSIONS",
+        "topic_name": "温室气体排放",
+        "topic_category": "E",
+        "default_financial_materiality": "high",
+        "default_impact_materiality": "high",
+        "default_owner_department": "ESG管理部",
+        "status": "active"
+      }
+    ],
+    "total": 1
+  }
+}

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { AuthApiError, getCurrentUser, logoutRequest, refreshToken } from '../services/auth';
 import { useAuthStore } from '../stores/authStore';
+import { hasAllPermissions } from '../utils/permissions';
 
 export function WorkbenchPage() {
   const { accessToken, refreshToken: refreshTokenValue, currentUser, setCurrentUser, setTokens, logout } = useAuthStore();
@@ -45,6 +46,8 @@ export function WorkbenchPage() {
     };
   }, [accessToken, currentUser, logout, refreshTokenValue, setCurrentUser, setTokens]);
 
+  const canReadStandardLibrary = currentUser ? hasAllPermissions(currentUser.permissions, ['standard:read', 'topic:read', 'metric:read']) : false;
+
   const handleLogout = async () => {
     if (!accessToken) {
       logout();
@@ -63,7 +66,7 @@ export function WorkbenchPage() {
 
   return (
     <main style={{ padding: 24 }}>
-      <Card extra={<Space><Link to="/enterprise-projects">企业与项目</Link><Button onClick={handleLogout}>退出登录</Button></Space>}>
+      <Card extra={<Space><Link to="/enterprise-projects">企业与项目</Link>{canReadStandardLibrary && <Link to="/standard-library">标准库</Link>}<Button onClick={handleLogout}>退出登录</Button></Space>}>
         <Typography.Title level={2}>工作台</Typography.Title>
         {currentUser && (
           <Descriptions bordered column={1}>
