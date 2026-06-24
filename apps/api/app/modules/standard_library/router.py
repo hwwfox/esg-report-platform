@@ -21,6 +21,14 @@ def add_like_filter(clauses: list[str], params: dict, field_exprs: list[str], ke
     clauses.append("(" + " OR ".join(f"{field} ILIKE :keyword" for field in field_exprs) + ")")
 
 
+VALID_STATUS_VALUES = {"draft", "active", "inactive"}
+
+
+def validate_status_filter(status: str | None) -> None:
+    if status and status not in VALID_STATUS_VALUES:
+        raise ApiError(400, "STANDARD_LIBRARY_INVALID_STATUS", "Invalid status")
+
+
 def paged_params(page: int, page_size: int) -> dict:
     return {"limit": page_size, "offset": (page - 1) * page_size}
 
@@ -46,6 +54,7 @@ def list_standards(
     if applicable_market:
         clauses.append("s.applicable_market=:applicable_market")
         params["applicable_market"] = applicable_market
+    validate_status_filter(status)
     if status:
         clauses.append("s.status=:status")
         params["status"] = status
@@ -53,7 +62,7 @@ def list_standards(
     total = db.execute(text(f"SELECT count(*) FROM esg_standards s WHERE {where}"), params).scalar_one()
     rows = db.execute(text(f"""
         SELECT s.standard_code, s.standard_name, s.standard_short_name, s.standard_type,
-               s.applicable_market, sv.standard_version_code AS current_version, s.status::text
+               s.applicable_market, sv.version_no AS current_version, s.status::text
         FROM esg_standards s
         LEFT JOIN standard_versions sv
           ON sv.standard_id=s.standard_id
@@ -85,6 +94,7 @@ def list_topics(
             raise ApiError(400, "TOPIC_INVALID_CATEGORY", "Invalid topic category")
         clauses.append("t.topic_category=:topic_category")
         params["topic_category"] = topic_category
+    validate_status_filter(status)
     if status:
         clauses.append("t.status=:status")
         params["status"] = status
@@ -159,6 +169,7 @@ def recommended_metrics(topic_code: str, request: Request, db: Session = Depends
         JOIN esg_metrics m ON m.metric_id=tmm.metric_id
         WHERE tmm.topic_id=:topic_id
           AND tmm.status='active'
+          AND tmm.default_selected=true
           AND m.status='active'
           AND {tenant_scope_clause('m')}
         ORDER BY tmm.sort_order, m.metric_code

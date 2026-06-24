@@ -49,3 +49,18 @@ def test_metric_type_filter_rejects_invalid_enum_before_query():
         assert exc.code == "METRIC_INVALID_TYPE"
     else:
         raise AssertionError("Invalid metric type should raise ApiError")
+
+
+def test_status_filter_rejects_invalid_enum_before_query():
+    try:
+        standard_router.validate_status_filter("archived")
+    except ApiError as exc:
+        assert exc.status_code == 400
+        assert exc.code == "STANDARD_LIBRARY_INVALID_STATUS"
+    else:
+        raise AssertionError("Invalid status should raise ApiError")
+
+
+def test_status_filter_accepts_known_status_values():
+    for status in (None, "draft", "active", "inactive"):
+        standard_router.validate_status_filter(status)

@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Spin, Table, Tabs, Tag, Typography, message } from 'antd';
+import type { TablePaginationConfig } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { getRecommendedMetrics, listMetrics, listStandards, listTopics } from '../services/standardLibrary';
@@ -12,6 +13,8 @@ export function StandardLibraryPage() {
   const [standards, setStandards] = useState<Standard[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [metricFilters, setMetricFilters] = useState<{ keyword?: string; metric_type?: string; topic_code?: string }>({});
+  const [metricPagination, setMetricPagination] = useState({ current: 1, pageSize: 50, total: 0 });
   const [recommendedMetrics, setRecommendedMetrics] = useState<Metric[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
 
@@ -23,11 +26,12 @@ export function StandardLibraryPage() {
       const [standardPage, topicPage, metricPage] = await Promise.all([
         listStandards(accessToken),
         listTopics(accessToken),
-        listMetrics(accessToken),
+        listMetrics(accessToken, { page: 1, page_size: metricPagination.pageSize }),
       ]);
       setStandards(standardPage.items);
       setTopics(topicPage.items);
       setMetrics(metricPage.items);
+      setMetricPagination((current) => ({ ...current, current: 1, total: metricPage.total }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'REQUEST_FAILED');
     } finally {
@@ -53,11 +57,26 @@ export function StandardLibraryPage() {
     message.success('议题列表已更新');
   };
 
-  const handleMetricSearch = async (values: { keyword?: string; metric_type?: string; topic_code?: string }) => {
+  const loadMetricPage = async (filters: { keyword?: string; metric_type?: string; topic_code?: string }, pageNumber: number, pageSize: number) => {
     if (!accessToken) return;
-    const page = await listMetrics(accessToken, values);
+    const page = await listMetrics(accessToken, { ...filters, page: pageNumber, page_size: pageSize });
     setMetrics(page.items);
+    setMetricPagination({ current: pageNumber, pageSize, total: page.total });
+  };
+
+  const handleMetricSearch = async (values: { keyword?: string; metric_type?: string; topic_code?: string }) => {
+    const nextFilters = {
+      keyword: values.keyword,
+      metric_type: values.metric_type,
+      topic_code: values.topic_code,
+    };
+    setMetricFilters(nextFilters);
+    await loadMetricPage(nextFilters, 1, metricPagination.pageSize);
     message.success('指标列表已更新');
+  };
+
+  const handleMetricTableChange = (pagination: TablePaginationConfig) => {
+    void loadMetricPage(metricFilters, pagination.current ?? 1, pagination.pageSize ?? metricPagination.pageSize);
   };
 
   const openRecommendedMetrics = async (topic: Topic) => {
@@ -155,7 +174,7 @@ export function StandardLibraryPage() {
                       <Button htmlType="submit" type="primary">查询</Button>
                     </Form>
                   </Card>
-                  <Table rowKey="metric_code" dataSource={metrics} pagination={{ pageSize: 10 }} columns={[
+                  <Table rowKey="metric_code" dataSource={metrics} pagination={{ current: metricPagination.current, pageSize: metricPagination.pageSize, total: metricPagination.total, showSizeChanger: true }} onChange={handleMetricTableChange} columns={[
                     { title: '编码', dataIndex: 'metric_code' },
                     { title: '名称', dataIndex: 'metric_name' },
                     { title: '类型', dataIndex: 'metric_type' },

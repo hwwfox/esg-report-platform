@@ -53,24 +53,24 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
-function queryString(params: Record<string, string | undefined>) {
+function queryString(params: Record<string, string | number | undefined>) {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value) search.set(key, value);
+    if (value !== undefined && value !== '') search.set(key, String(value));
   });
   const query = search.toString();
   return query ? `?${query}` : '';
 }
 
-export async function listStandards(token: string, params: { keyword?: string; standard_type?: string; applicable_market?: string } = {}): Promise<ListResponse<Standard>> {
+export async function listStandards(token: string, params: { keyword?: string; standard_type?: string; applicable_market?: string; page?: number; page_size?: number } = {}): Promise<ListResponse<Standard>> {
   return parseResponse<ListResponse<Standard>>(await fetch(`${API_BASE}/standards${queryString(params)}`, { headers: authHeaders(token) }));
 }
 
-export async function listTopics(token: string, params: { keyword?: string; topic_category?: string } = {}): Promise<ListResponse<Topic>> {
+export async function listTopics(token: string, params: { keyword?: string; topic_category?: string; page?: number; page_size?: number } = {}): Promise<ListResponse<Topic>> {
   return parseResponse<ListResponse<Topic>>(await fetch(`${API_BASE}/topics${queryString(params)}`, { headers: authHeaders(token) }));
 }
 
-export async function listMetrics(token: string, params: { keyword?: string; metric_type?: string; topic_code?: string } = {}): Promise<ListResponse<Metric>> {
+export async function listMetrics(token: string, params: { keyword?: string; metric_type?: string; topic_code?: string; page?: number; page_size?: number } = {}): Promise<ListResponse<Metric>> {
   return parseResponse<ListResponse<Metric>>(await fetch(`${API_BASE}/metrics${queryString(params)}`, { headers: authHeaders(token) }));
 }
 
