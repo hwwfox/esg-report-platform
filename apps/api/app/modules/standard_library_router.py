@@ -7,8 +7,18 @@ from app.core.errors import ApiError
 from app.core.response import ok
 from app.db.session import get_db
 from app.modules.auth.dependencies import require_permission
+from app.modules.audit.service import write_audit_log
 
 router = APIRouter(prefix="/api/v1", tags=["标准议题指标"])
+
+STATUS_VALUES = {"draft", "active", "inactive"}
+TOPIC_CATEGORY_VALUES = {"E", "S", "G"}
+METRIC_TYPE_VALUES = {"quantitative", "qualitative"}
+
+
+def _validate_enum(value: str | None, allowed: set[str], code: str, field: str) -> None:
+    if value is not None and value not in allowed:
+        raise ApiError(400, code, f"Invalid {field}")
 
 
 class StandardImportPayload(BaseModel):
@@ -28,6 +38,7 @@ def _paged(rows, total: int, page: int, page_size: int) -> dict:
 
 @router.get("/standards")
 def list_standards(request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("standard:read")), keyword: str | None = None, standard_type: str | None = None, applicable_market: str | None = None, status: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)):
+    _validate_enum(status, STATUS_VALUES, "STANDARD_INVALID_STATUS", "status")
     clauses = [_library_visibility_clause()]
     params = {"tenant_id": user["current_tenant_id"], "limit": page_size, "offset": (page - 1) * page_size}
     if keyword:
@@ -43,14 +54,22 @@ def list_standards(request: Request, db: Session = Depends(get_db), user: dict =
         clauses.append("status = :status")
         params["status"] = status
     where = " AND ".join(clauses)
+    select_where = " AND ".join(clause.replace("tenant_id", "s.tenant_id") for clause in clauses)
     total = db.execute(text(f"SELECT count(*) FROM esg_standards WHERE {where}"), params).scalar_one()
     rows = db.execute(text(f"""
-        SELECT standard_id::text, tenant_id::text, standard_code, standard_name, standard_short_name,
-               standard_type, applicable_market, issuing_body, description, scope_type, status::text,
-               created_at, updated_at
-        FROM esg_standards
-        WHERE {where}
-        ORDER BY standard_code
+        SELECT s.standard_id::text, s.tenant_id::text, s.standard_code, s.standard_name, s.standard_short_name,
+               s.standard_type, s.applicable_market, s.issuing_body, s.description, s.scope_type, s.status::text,
+               current_sv.version_no AS current_version, s.created_at, s.updated_at
+        FROM esg_standards s
+        LEFT JOIN LATERAL (
+            SELECT sv.version_no
+            FROM standard_versions sv
+            WHERE sv.standard_id = s.standard_id AND sv.status = 'active'
+            ORDER BY sv.is_current DESC, sv.effective_date DESC NULLS LAST, sv.version_no DESC
+            LIMIT 1
+        ) current_sv ON true
+        WHERE {select_where}
+        ORDER BY s.standard_code
         LIMIT :limit OFFSET :offset
     """), params).mappings().all()
     return ok(_paged(rows, total, page, page_size), request_id=request.state.request_id)
@@ -81,6 +100,7 @@ def get_standard(standard_code: str, request: Request, db: Session = Depends(get
 
 @router.get("/standards/{standard_code}/versions/{version_code}/clauses")
 def list_standard_clauses(standard_code: str, version_code: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("standard:read")), status: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=500)):
+    _validate_enum(status, STATUS_VALUES, "CLAUSE_INVALID_STATUS", "status")
     params = {"tenant_id": user["current_tenant_id"], "standard_code": standard_code, "version_code": version_code, "limit": page_size, "offset": (page - 1) * page_size}
     status_clause = " AND c.status=:status" if status else ""
     if status:
@@ -105,6 +125,8 @@ def list_standard_clauses(standard_code: str, version_code: str, request: Reques
 
 @router.get("/topics")
 def list_topics(request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("topic:read")), keyword: str | None = None, topic_category: str | None = None, status: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)):
+    _validate_enum(status, STATUS_VALUES, "TOPIC_INVALID_STATUS", "status")
+    _validate_enum(topic_category, TOPIC_CATEGORY_VALUES, "TOPIC_INVALID_CATEGORY", "topic_category")
     clauses = [_library_visibility_clause()]
     params = {"tenant_id": user["current_tenant_id"], "limit": page_size, "offset": (page - 1) * page_size}
     if keyword:
@@ -142,12 +164,13 @@ def get_topic(topic_code: str, request: Request, db: Session = Depends(get_db), 
 
 @router.get("/metrics")
 def list_metrics(request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("metric:read")), keyword: str | None = None, metric_type: str | None = None, topic_code: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)):
+    _validate_enum(metric_type, METRIC_TYPE_VALUES, "METRIC_INVALID_TYPE", "metric_type")
     params = {"tenant_id": user["current_tenant_id"], "limit": page_size, "offset": (page - 1) * page_size}
     joins = ""
     clauses = [_library_visibility_clause("m")]
     if topic_code:
         joins = "JOIN topic_metric_maps tmm ON tmm.metric_id=m.metric_id JOIN esg_topics t ON t.topic_id=tmm.topic_id"
-        clauses.extend([_library_visibility_clause("t"), "t.topic_code=:topic_code", "tmm.status='active'"])
+        clauses.extend([_library_visibility_clause("t"), "t.topic_code=:topic_code", "t.status='active'", "tmm.status='active'"])
         params["topic_code"] = topic_code
     if keyword:
         clauses.append("(m.metric_code ILIKE :keyword OR m.metric_name ILIKE :keyword)")
@@ -192,7 +215,7 @@ def list_standard_topics(standard_code: str, version_code: str, request: Request
         JOIN esg_standards s ON s.standard_id=sv.standard_id
         JOIN esg_topics t ON t.topic_id=stm.topic_id
         WHERE {_library_visibility_clause('s')} AND {_library_visibility_clause('t')}
-          AND s.standard_code=:standard_code AND sv.standard_version_code=:version_code AND stm.status='active'
+          AND s.standard_code=:standard_code AND sv.standard_version_code=:version_code AND stm.status='active' AND t.status='active'
         ORDER BY t.topic_code
     """), {"tenant_id": user["current_tenant_id"], "standard_code": standard_code, "version_code": version_code}).mappings().all()
     return ok({"items": [dict(r) for r in rows]}, request_id=request.state.request_id)
@@ -208,7 +231,7 @@ def list_topic_metrics(topic_code: str, request: Request, db: Session = Depends(
         JOIN esg_topics t ON t.topic_id=tmm.topic_id
         JOIN esg_metrics m ON m.metric_id=tmm.metric_id
         WHERE {_library_visibility_clause('t')} AND {_library_visibility_clause('m')}
-          AND t.topic_code=:topic_code AND tmm.status='active'
+          AND t.topic_code=:topic_code AND tmm.status='active' AND t.status='active' AND m.status='active'
         ORDER BY tmm.sort_order, m.metric_code
     """), {"tenant_id": user["current_tenant_id"], "topic_code": topic_code}).mappings().all()
     return ok({"topic_code": topic_code, "metrics": [dict(r) for r in rows]}, request_id=request.state.request_id)
@@ -225,7 +248,7 @@ def list_clause_metrics(clause_code: str, request: Request, db: Session = Depend
         JOIN esg_standards s ON s.standard_id=sv.standard_id
         JOIN esg_metrics m ON m.metric_id=cmm.metric_id
         WHERE {_library_visibility_clause('s')} AND {_library_visibility_clause('m')}
-          AND c.clause_code=:clause_code AND cmm.status='active'
+          AND c.clause_code=:clause_code AND cmm.status='active' AND c.status='active' AND m.status='active'
         ORDER BY m.metric_code
     """), {"tenant_id": user["current_tenant_id"], "clause_code": clause_code}).mappings().all()
     return ok({"clause_code": clause_code, "metrics": [dict(r) for r in rows]}, request_id=request.state.request_id)
@@ -238,5 +261,6 @@ def create_standard_import_job(payload: StandardImportPayload, request: Request,
         VALUES (:tenant_id, 'standard_library_import', 'pending', 0, CAST(:request_payload AS jsonb), :created_by)
         RETURNING job_id::text, job_type, job_status::text, progress, request_payload, created_at
     """), {"tenant_id": user["current_tenant_id"], "request_payload": payload.model_dump_json(), "created_by": user["user_id"]}).mappings().first()
+    write_audit_log(db, tenant_id=user["current_tenant_id"], user_id=user["user_id"], user_name=user["name"], action_type="standard.import_job_created", object_type="async_jobs", object_id=row["job_id"], description="创建标准库导入任务", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
     db.commit()
     return ok(dict(row), request_id=request.state.request_id)
