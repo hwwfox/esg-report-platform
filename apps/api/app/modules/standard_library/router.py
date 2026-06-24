@@ -5,13 +5,18 @@ from sqlalchemy.orm import Session
 from app.core.errors import ApiError
 from app.core.response import ok
 from app.db.session import get_db
-from app.modules.auth.dependencies import require_permission, require_permissions
+from app.modules.audit.service import write_audit_log
+from app.modules.auth.dependencies import has_permission, require_permission, require_permissions
 
 router = APIRouter(prefix="/api/v1", tags=["标准议题指标"])
 
 
 def tenant_scope_clause(alias: str) -> str:
     return f"({alias}.tenant_id IS NULL OR {alias}.tenant_id=:tenant_id)"
+
+
+def standard_scope_api_expr(alias: str) -> str:
+    return f"CASE WHEN {alias}.scope_type IN ('tenant', 'tenant_private') THEN 'tenant' ELSE 'platform' END"
 
 
 def add_like_filter(clauses: list[str], params: dict, field_exprs: list[str], keyword: str | None) -> None:
@@ -62,7 +67,8 @@ def list_standards(
     total = db.execute(text(f"SELECT count(*) FROM esg_standards s WHERE {where}"), params).scalar_one()
     rows = db.execute(text(f"""
         SELECT s.standard_code, s.standard_name, s.standard_short_name, s.standard_type,
-               s.applicable_market, s.scope_type, sv.version_no AS current_version, s.status::text
+               s.applicable_market, {standard_scope_api_expr("s")} AS scope_type,
+               sv.version_no AS current_version, s.status::text
         FROM esg_standards s
         LEFT JOIN standard_versions sv
           ON sv.standard_id=s.standard_id
@@ -132,6 +138,10 @@ def list_metrics(
         clauses.append("m.metric_type=:metric_type")
         params["metric_type"] = metric_type
     if topic_code:
+        if not has_permission(user, "topic:read"):
+            write_audit_log(db, tenant_id=user["current_tenant_id"], user_id=user["user_id"], user_name=user["name"], action_type="security.permission_denied", description="缺少权限: topic:read", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
+            db.commit()
+            raise ApiError(403, "AUTH_FORBIDDEN", "Permission denied")
         joins = """
             JOIN topic_metric_maps tmm ON tmm.metric_id=m.metric_id AND tmm.status='active'
             JOIN esg_topics t ON t.topic_id=tmm.topic_id
