@@ -33,3 +33,20 @@ def require_permission(permission: str):
             raise ApiError(403, "AUTH_FORBIDDEN", "Permission denied")
         return user
     return checker
+
+
+def require_permissions(required_permissions: list[str]):
+    def checker(request: Request, db: Session = Depends(get_db), user: dict = Depends(get_current_user)) -> dict:
+        permissions = set(user.get("permissions", []))
+        missing_permissions = [
+            permission
+            for permission in required_permissions
+            if not ("*" in permissions or permission in permissions or any(p.endswith(":*") and permission.startswith(p[:-1]) for p in permissions))
+        ]
+        if missing_permissions:
+            missing = ", ".join(missing_permissions)
+            write_audit_log(db, tenant_id=user["current_tenant_id"], user_id=user["user_id"], user_name=user["name"], action_type="security.permission_denied", description=f"缺少权限: {missing}", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
+            db.commit()
+            raise ApiError(403, "AUTH_FORBIDDEN", "Permission denied")
+        return user
+    return checker

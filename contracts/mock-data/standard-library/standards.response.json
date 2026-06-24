@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "request_id": "req-mock-standard-list",
+  "data": {
+    "items": [
+      {
+        "standard_code": "GRI",
+        "standard_name": "GRI Standards",
+        "standard_short_name": "GRI",
+        "standard_type": "voluntary",
+        "applicable_market": "global",
+        "scope_type": "platform",
+        "current_version": "2021",
+        "status": "active"
+      }
+    ],
+    "total": 1
+  }
+}

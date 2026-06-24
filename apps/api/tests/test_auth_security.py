@@ -147,6 +147,55 @@ def test_missing_permission_is_rejected_and_audited(monkeypatch):
     assert audit_calls[0]["action_type"] == "security.permission_denied"
 
 
+def test_missing_multi_permission_is_rejected_and_audited(monkeypatch):
+    audit_calls = []
+
+    class FakeDb:
+        def __init__(self):
+            self.committed = False
+
+        def commit(self):
+            self.committed = True
+
+    def fake_write_audit_log(db, **kwargs):
+        audit_calls.append(kwargs)
+
+    monkeypatch.setattr(auth_dependencies, "write_audit_log", fake_write_audit_log)
+    db = FakeDb()
+    request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"user-agent": "pytest"})
+    checker = auth_dependencies.require_permissions(["topic:read", "metric:read"])
+    user = {
+        "current_tenant_id": "tenant-1",
+        "user_id": "user-1",
+        "name": "Metric Only User",
+        "permissions": ["metric:read"],
+    }
+
+    try:
+        checker(request=request, db=db, user=user)
+    except ApiError as exc:
+        assert exc.status_code == 403
+        assert exc.code == "AUTH_FORBIDDEN"
+    else:
+        raise AssertionError("Missing one of multiple permissions should raise ApiError")
+
+    assert db.committed
+    assert audit_calls[0]["tenant_id"] == "tenant-1"
+    assert audit_calls[0]["description"] == "缺少权限: topic:read"
+
+
+def test_multi_permission_allows_wildcard_scope():
+    checker = auth_dependencies.require_permissions(["topic:read", "metric:read"])
+    user = {
+        "current_tenant_id": "tenant-1",
+        "user_id": "user-1",
+        "name": "Standard Admin",
+        "permissions": ["topic:*", "metric:read"],
+    }
+
+    assert checker(request=SimpleNamespace(), db=None, user=user) == user
+
+
 def test_project_access_denies_empty_enterprise_scope():
     assert not user_can_access_enterprise({"enterprises": []}, "enterprise-1")
 

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import ApiError
 from app.core.response import ok
 from app.db.session import get_db
-from app.modules.auth.dependencies import require_permission
+from app.modules.auth.dependencies import require_permission, require_permissions
 
 router = APIRouter(prefix="/api/v1", tags=["标准议题指标"])
 
@@ -62,7 +62,7 @@ def list_standards(
     total = db.execute(text(f"SELECT count(*) FROM esg_standards s WHERE {where}"), params).scalar_one()
     rows = db.execute(text(f"""
         SELECT s.standard_code, s.standard_name, s.standard_short_name, s.standard_type,
-               s.applicable_market, sv.version_no AS current_version, s.status::text
+               s.applicable_market, s.scope_type, sv.version_no AS current_version, s.status::text
         FROM esg_standards s
         LEFT JOIN standard_versions sv
           ON sv.standard_id=s.standard_id
@@ -153,7 +153,7 @@ def list_metrics(
 
 
 @router.get("/topics/{topic_code}/recommended-metrics")
-def recommended_metrics(topic_code: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("metric:read"))):
+def recommended_metrics(topic_code: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permissions(["topic:read", "metric:read"]))):
     params = {"tenant_id": user["current_tenant_id"], "topic_code": topic_code}
     topic = db.execute(text(f"""
         SELECT t.topic_id::text, t.topic_code, t.topic_name

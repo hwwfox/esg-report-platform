@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "request_id": "req-mock-metric-list",
+  "data": {
+    "items": [
+      {
+        "metric_code": "METRIC_SCOPE1_EMISSIONS",
+        "metric_name": "范围一温室气体排放量",
+        "metric_type": "quantitative",
+        "data_type": "number",
+        "default_unit": "tCO2e",
+        "default_required": true,
+        "status": "active"
+      }
+    ],
+    "total": 1
+  }
+}

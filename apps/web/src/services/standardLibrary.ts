@@ -6,6 +6,7 @@ export interface Standard {
   standard_short_name?: string | null;
   standard_type: string;
   applicable_market?: string | null;
+  scope_type: 'platform' | 'tenant';
   current_version?: string | null;
   status: string;
 }

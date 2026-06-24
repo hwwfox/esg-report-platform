@@ -13,6 +13,10 @@ export function StandardLibraryPage() {
   const [standards, setStandards] = useState<Standard[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [standardFilters, setStandardFilters] = useState<{ keyword?: string; standard_type?: string; applicable_market?: string }>({});
+  const [standardPagination, setStandardPagination] = useState({ current: 1, pageSize: 50, total: 0 });
+  const [topicFilters, setTopicFilters] = useState<{ keyword?: string; topic_category?: string }>({});
+  const [topicPagination, setTopicPagination] = useState({ current: 1, pageSize: 50, total: 0 });
   const [metricFilters, setMetricFilters] = useState<{ keyword?: string; metric_type?: string; topic_code?: string }>({});
   const [metricPagination, setMetricPagination] = useState({ current: 1, pageSize: 50, total: 0 });
   const [recommendedMetrics, setRecommendedMetrics] = useState<Metric[]>([]);
@@ -24,13 +28,15 @@ export function StandardLibraryPage() {
     setError(null);
     try {
       const [standardPage, topicPage, metricPage] = await Promise.all([
-        listStandards(accessToken),
-        listTopics(accessToken),
+        listStandards(accessToken, { page: 1, page_size: standardPagination.pageSize }),
+        listTopics(accessToken, { page: 1, page_size: topicPagination.pageSize }),
         listMetrics(accessToken, { page: 1, page_size: metricPagination.pageSize }),
       ]);
       setStandards(standardPage.items);
       setTopics(topicPage.items);
       setMetrics(metricPage.items);
+      setStandardPagination((current) => ({ ...current, current: 1, total: standardPage.total }));
+      setTopicPagination((current) => ({ ...current, current: 1, total: topicPage.total }));
       setMetricPagination((current) => ({ ...current, current: 1, total: metricPage.total }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'REQUEST_FAILED');
@@ -44,17 +50,46 @@ export function StandardLibraryPage() {
   }, [accessToken]);
 
   const handleStandardSearch = async (values: { keyword?: string; standard_type?: string; applicable_market?: string }) => {
-    if (!accessToken) return;
-    const page = await listStandards(accessToken, values);
-    setStandards(page.items);
+    const nextFilters = {
+      keyword: values.keyword,
+      standard_type: values.standard_type,
+      applicable_market: values.applicable_market,
+    };
+    setStandardFilters(nextFilters);
+    await loadStandardPage(nextFilters, 1, standardPagination.pageSize);
     message.success('标准列表已更新');
   };
 
   const handleTopicSearch = async (values: { keyword?: string; topic_category?: string }) => {
-    if (!accessToken) return;
-    const page = await listTopics(accessToken, values);
-    setTopics(page.items);
+    const nextFilters = {
+      keyword: values.keyword,
+      topic_category: values.topic_category,
+    };
+    setTopicFilters(nextFilters);
+    await loadTopicPage(nextFilters, 1, topicPagination.pageSize);
     message.success('议题列表已更新');
+  };
+
+  const loadStandardPage = async (filters: { keyword?: string; standard_type?: string; applicable_market?: string }, pageNumber: number, pageSize: number) => {
+    if (!accessToken) return;
+    const page = await listStandards(accessToken, { ...filters, page: pageNumber, page_size: pageSize });
+    setStandards(page.items);
+    setStandardPagination({ current: pageNumber, pageSize, total: page.total });
+  };
+
+  const handleStandardTableChange = (pagination: TablePaginationConfig) => {
+    void loadStandardPage(standardFilters, pagination.current ?? 1, pagination.pageSize ?? standardPagination.pageSize);
+  };
+
+  const loadTopicPage = async (filters: { keyword?: string; topic_category?: string }, pageNumber: number, pageSize: number) => {
+    if (!accessToken) return;
+    const page = await listTopics(accessToken, { ...filters, page: pageNumber, page_size: pageSize });
+    setTopics(page.items);
+    setTopicPagination({ current: pageNumber, pageSize, total: page.total });
+  };
+
+  const handleTopicTableChange = (pagination: TablePaginationConfig) => {
+    void loadTopicPage(topicFilters, pagination.current ?? 1, pagination.pageSize ?? topicPagination.pageSize);
   };
 
   const loadMetricPage = async (filters: { keyword?: string; metric_type?: string; topic_code?: string }, pageNumber: number, pageSize: number) => {
@@ -112,12 +147,13 @@ export function StandardLibraryPage() {
                       <Button htmlType="submit" type="primary">查询</Button>
                     </Form>
                   </Card>
-                  <Table rowKey="standard_code" dataSource={standards} pagination={{ pageSize: 10 }} columns={[
+                  <Table rowKey="standard_code" dataSource={standards} pagination={{ current: standardPagination.current, pageSize: standardPagination.pageSize, total: standardPagination.total, showSizeChanger: true }} onChange={handleStandardTableChange} columns={[
                     { title: '编码', dataIndex: 'standard_code' },
                     { title: '名称', dataIndex: 'standard_name' },
                     { title: '简称', dataIndex: 'standard_short_name' },
                     { title: '类型', dataIndex: 'standard_type' },
                     { title: '适用市场', dataIndex: 'applicable_market' },
+                    { title: '范围', dataIndex: 'scope_type', render: (value: string) => <Tag color={value === 'tenant' ? 'blue' : 'default'}>{value === 'tenant' ? '租户私有' : '平台公共'}</Tag> },
                     { title: '当前版本', dataIndex: 'current_version' },
                     { title: '状态', dataIndex: 'status', render: (value: string) => <Tag color="green">{value}</Tag> },
                   ]} />
@@ -138,7 +174,7 @@ export function StandardLibraryPage() {
                           <Button htmlType="submit" type="primary">查询</Button>
                         </Form>
                       </Card>
-                      <Table rowKey="topic_code" dataSource={topics} pagination={{ pageSize: 10 }} columns={[
+                      <Table rowKey="topic_code" dataSource={topics} pagination={{ current: topicPagination.current, pageSize: topicPagination.pageSize, total: topicPagination.total, showSizeChanger: true }} onChange={handleTopicTableChange} columns={[
                         { title: '编码', dataIndex: 'topic_code' },
                         { title: '名称', dataIndex: 'topic_name' },
                         { title: '类别', dataIndex: 'topic_category', render: (value: string) => <Tag>{value}</Tag> },
