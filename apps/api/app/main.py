@@ -9,6 +9,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.enterprises.router import router as enterprises_router
 from app.modules.projects.router import router as projects_router
 from app.modules.standard_library_router import router as standard_library_router
+from app.modules.standard_library.router import router as standard_library_router
 
 settings = get_settings()
 
