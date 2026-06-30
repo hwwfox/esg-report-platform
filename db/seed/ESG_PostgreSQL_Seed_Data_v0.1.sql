@@ -160,6 +160,22 @@ LEFT JOIN users u ON u.tenant_id = t.tenant_id AND u.email = 'project.owner@exam
 WHERE t.tenant_code = 'DEFAULT'
 ON CONFLICT DO NOTHING;
 
+-- 同行公司示例池
+INSERT INTO peer_company_profiles (company_name, company_short_name, stock_code, exchange, gics_level_4_code, gics_level_4_name, main_business, metadata)
+VALUES
+  ('工业机械同行A股份有限公司', '同行A', '600101', 'SSE', '20106010', '工业机械', '工业自动化设备和通用机械制造', '{"seed":true}'::jsonb),
+  ('智能装备同行B股份有限公司', '同行B', '000202', 'SZSE', '20106010', '工业机械', '智能装备、工业机器人和成套设备制造', '{"seed":true}'::jsonb),
+  ('重型装备同行C股份有限公司', '同行C', '601303', 'SSE', '20106020', '工程机械与重型运输设备', '工程机械和重型运输设备制造', '{"seed":true}'::jsonb),
+  ('特种化学同行D股份有限公司', '同行D', '300404', 'SZSE', '15101050', '特种化学品', '精细化工和特种材料研发生产', '{"seed":true}'::jsonb)
+ON CONFLICT (stock_code, exchange) DO UPDATE
+SET company_name = EXCLUDED.company_name,
+    company_short_name = EXCLUDED.company_short_name,
+    gics_level_4_code = EXCLUDED.gics_level_4_code,
+    gics_level_4_name = EXCLUDED.gics_level_4_name,
+    main_business = EXCLUDED.main_business,
+    metadata = EXCLUDED.metadata,
+    updated_at = now();
+
 -- =========================================================
 -- 6. 组织架构示例
 -- =========================================================

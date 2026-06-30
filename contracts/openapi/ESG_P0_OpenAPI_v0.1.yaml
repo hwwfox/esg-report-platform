@@ -1258,6 +1258,33 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearerAuth: []
+  /gics-industries:
+    get:
+      tags:
+      - GICS行业
+      summary: 查询GICS行业表
+      parameters:
+      - name: parent_gics_code
+        in: query
+        schema:
+          type: string
+      - name: level
+        in: query
+        schema:
+          type: integer
+      - name: keyword
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+      security:
+      - bearerAuth: []
   /enterprises/{enterprise_id}/gics/identify:
     parameters:
     - name: enterprise_id
@@ -1308,6 +1335,26 @@ paths:
               $ref: '#/components/schemas/GicsIdentifyRequest'
       security:
       - bearerAuth: []
+  /enterprises/{enterprise_id}/gics/current:
+    parameters:
+    - name: enterprise_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - GICS行业
+      summary: 获取企业当前确认GICS行业
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+      security:
+      - bearerAuth: []
   /enterprises/{enterprise_id}/gics/confirm:
     parameters:
     - name: enterprise_id
@@ -1356,6 +1403,33 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/GicsConfirmRequest'
+      security:
+      - bearerAuth: []
+  /peer-companies/search:
+    get:
+      tags:
+      - 同行公司
+      summary: 搜索同行公司候选库
+      parameters:
+      - name: keyword
+        in: query
+        schema:
+          type: string
+      - name: gics_code
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
       security:
       - bearerAuth: []
   /projects/{project_id}/peer-companies/recommend:
@@ -1415,6 +1489,19 @@ paths:
       required: true
       schema:
         type: string
+    get:
+      tags:
+      - 同行公司
+      summary: 查询项目同行池
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+      security:
+      - bearerAuth: []
     post:
       tags:
       - 同行公司
@@ -1456,6 +1543,31 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PeerCompanyCreateRequest'
+      security:
+      - bearerAuth: []
+  /projects/{project_id}/peer-companies/{project_peer_company_id}:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: project_peer_company_id
+      in: path
+      required: true
+      schema:
+        type: string
+    delete:
+      tags:
+      - 同行公司
+      summary: 移除项目同行
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
       security:
       - bearerAuth: []
   /projects/{project_id}/peer-companies/confirm:
@@ -5278,6 +5390,8 @@ components:
       properties:
         peer_company_id:
           type: string
+        profile_peer_company_id:
+          type: string
         company_name:
           type: string
         stock_code:
@@ -5318,6 +5432,8 @@ components:
       required:
       - company_name
       properties:
+        peer_company_id:
+          type: string
         company_name:
           type: string
         stock_code:
