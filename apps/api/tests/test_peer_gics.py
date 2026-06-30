@@ -26,22 +26,24 @@ def test_gics_candidate_can_match_specialty_chemicals():
     peer_router._candidate_gics(FakeDb(), {"enterprise_name": "化工企业", "main_business": "特种化学品"})
 
 
-def test_peer_recommendation_requires_confirmed_gics(monkeypatch):
+def test_peer_recommendation_requires_confirmed_gics_with_or_without_override(monkeypatch):
     monkeypatch.setattr(peer_router, "_authorize_project", lambda request, db, user, project_id: {"project_id": project_id, "enterprise_id": "enterprise-1"})
     monkeypatch.setattr(peer_router, "_current_enterprise_gics", lambda db, tenant_id, enterprise_id: None)
 
-    try:
-        peer_router.recommend_peers(
-            project_id="project-1",
-            payload=peer_router.PeerRecommendRequest(),
-            request=SimpleNamespace(state=SimpleNamespace(request_id="req-1")),
-            db=SimpleNamespace(),
-            user={"current_tenant_id": "tenant-1", "user_id": "user-1", "name": "Owner"},
-        )
-    except ApiError as exc:
-        assert exc.code == "GICS_NOT_CONFIRMED"
-    else:
-        raise AssertionError("Unconfirmed GICS should block peer recommendation")
+    for payload in [peer_router.PeerRecommendRequest(), peer_router.PeerRecommendRequest(gics_code="20106010", gics_level=4)]:
+        try:
+            peer_router.recommend_peers(
+                project_id="project-1",
+                payload=payload,
+                request=SimpleNamespace(state=SimpleNamespace(request_id="req-1")),
+                db=SimpleNamespace(),
+                user={"current_tenant_id": "tenant-1", "user_id": "user-1", "name": "Owner"},
+            )
+        except ApiError as exc:
+            assert exc.code == "GICS_NOT_CONFIRMED"
+        else:
+            raise AssertionError("Unconfirmed GICS should block peer recommendation")
+
 
 
 def test_confirm_peer_pool_requires_selection(monkeypatch):
@@ -97,7 +99,7 @@ def test_resolve_existing_peer_profile_by_id():
     class FakeDb:
         def execute(self, statement, params):
             assert "FROM peer_company_profiles" in str(statement)
-            assert params == {"peer_company_id": "profile-1"}
+            assert params == {"peer_company_id": "profile-1", "tenant_id": None}
             return FakeResult()
 
     row = peer_router._resolve_or_create_peer_profile(
@@ -129,3 +131,16 @@ def test_resolve_existing_peer_profile_rejects_unknown_id():
         assert exc.code == "PEER_COMPANY_INVALID"
     else:
         raise AssertionError("Unknown peer profile id should be rejected")
+
+
+def test_gics_candidate_can_match_level_four_technology_child():
+    class FakeDb:
+        def execute(self, statement, params):
+            assert params["codes"] == ["45203010"]
+            return SimpleNamespace(mappings=lambda: SimpleNamespace(all=lambda: [
+                {"gics_code": "45203010", "gics_name_en": "Electronic Equipment & Instruments", "gics_name_cn": "电子设备与仪器", "gics_level": 4, "parent_gics_code": "452030"},
+            ]))
+
+    candidates = peer_router._candidate_gics(FakeDb(), {"enterprise_name": "电子科技", "main_business": "technology components"})
+
+    assert candidates[0]["gics_level"] == 4

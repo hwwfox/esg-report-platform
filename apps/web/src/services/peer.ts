@@ -11,7 +11,7 @@ export interface GicsClassification {
 
 export interface GicsIdentifyResponse {
   enterprise_id: string;
-  primary_result: GicsClassification;
+  identification_result: GicsClassification;
   alternative_results: GicsClassification[];
   requires_human_confirmation: boolean;
 }

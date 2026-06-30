@@ -1707,6 +1707,40 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearerAuth: []
+
+  /files/{file_id}/stream:
+    parameters:
+    - name: file_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 文件
+      summary: 受控流式下载文件
+      responses:
+        '200':
+          description: File bytes
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
   /projects/{project_id}/peer-reports:
     parameters:
     - name: project_id

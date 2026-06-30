@@ -1,9 +1,10 @@
 import json
+import re
 from datetime import date
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -13,7 +14,7 @@ from app.core.errors import ApiError
 from app.core.response import ok
 from app.db.session import get_db
 from app.modules.audit.service import write_audit_log
-from app.modules.auth.dependencies import require_permission
+from app.modules.auth.dependencies import has_permission, require_permission
 from app.modules.projects.router import _authorize_project, user_can_access_enterprise
 
 router = APIRouter(prefix="/api/v1", tags=["文件", "同行报告解析", "异步任务"])
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/api/v1", tags=["文件", "同行报告解析", "异�
 ALLOWED_PEER_REPORT_MIME_TYPES = {"application/pdf"}
 ALLOWED_PEER_REPORT_EXTENSIONS = {".pdf"}
 MAX_PEER_REPORT_SIZE_BYTES = 50 * 1024 * 1024
+LOCAL_FILE_STORAGE_ROOT = Path("/tmp/esg-report-platform/files")
 
 
 class PeerReportCreateRequest(BaseModel):
@@ -108,7 +110,7 @@ def _job_payload(row: dict) -> dict:
 def _get_file(db: Session, tenant_id: str, file_id: str) -> dict | None:
     row = db.execute(text("""
         SELECT file_id::text, tenant_id::text, enterprise_id::text, project_id::text, file_name, file_type,
-               file_size, mime_type, business_type, related_object_type, related_object_id::text,
+               file_size, mime_type, storage_path, business_type, related_object_type, related_object_id::text,
                upload_status, uploaded_at
         FROM file_objects
         WHERE tenant_id=:tenant_id AND file_id=:file_id
@@ -138,6 +140,24 @@ def _get_peer_report(db: Session, tenant_id: str, project_id: str, peer_report_i
         WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
     """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id}).mappings().first()
     return dict(row) if row else None
+
+
+def _safe_file_name(file_name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", file_name)[:255] or "peer-report.pdf"
+
+
+def _local_storage_path(*, tenant_id: str, project_id: str, file_name: str) -> Path:
+    return LOCAL_FILE_STORAGE_ROOT / tenant_id / project_id / _safe_file_name(file_name)
+
+
+def _storage_uri(path: Path) -> str:
+    return f"local://{path}"
+
+
+def _path_from_storage_uri(storage_path: str) -> Path | None:
+    if not storage_path.startswith("local://"):
+        return None
+    return Path(storage_path.removeprefix("local://"))
 
 
 def _require_project_peer(db: Session, tenant_id: str, project_id: str, peer_company_id: str) -> None:
@@ -171,10 +191,17 @@ def upload_file(
         raise ApiError(400, "FILE_BUSINESS_TYPE_UNSUPPORTED", "Only peer_report uploads are supported in MVP")
     if not enterprise_id or not project_id:
         raise ApiError(400, "FILE_PROJECT_CONTEXT_REQUIRED", "Peer report files require enterprise_id and project_id")
+    if not has_permission(user, "project:update"):
+        write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="security.permission_denied", description="缺少权限: project:update", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
+        db.commit()
+        raise ApiError(403, "AUTH_FORBIDDEN", "Permission denied")
     project = _authorize_project(request, db, user, project_id)
     if project["enterprise_id"] != enterprise_id:
         raise ApiError(400, "FILE_PROJECT_CONTEXT_INVALID", "File enterprise/project context is invalid")
     validate_peer_report_upload(file.filename or "", file.content_type, file_size)
+    storage_path = _local_storage_path(tenant_id=user["current_tenant_id"], project_id=project_id, file_name=file.filename or "peer-report.pdf")
+    storage_path.parent.mkdir(parents=True, exist_ok=True)
+    storage_path.write_bytes(content)
     row = db.execute(text("""
         INSERT INTO file_objects (tenant_id, enterprise_id, project_id, file_name, file_type, file_size, mime_type,
           storage_path, business_type, related_object_type, related_object_id, upload_status, uploaded_by)
@@ -190,7 +217,7 @@ def upload_file(
         "file_type": "pdf",
         "file_size": file_size,
         "mime_type": file.content_type,
-        "storage_path": f"controlled://peer-reports/{user['current_tenant_id']}/{project_id}/{file.filename}",
+        "storage_path": _storage_uri(storage_path),
         "business_type": business_type,
         "related_object_id": related_object_id,
         "uploaded_by": user["user_id"],
@@ -200,8 +227,19 @@ def upload_file(
     return ok(_file_payload(dict(row)), request_id=request.state.request_id)
 
 
+@router.get("/files/{file_id}/stream")
+def stream_file(file_id: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:read"))):
+    file_row = _authorize_file_access(request, db, user, _get_file(db, user["current_tenant_id"], file_id))
+    path = _path_from_storage_uri(file_row.get("storage_path") or "")
+    if path is None or not path.exists() or not path.is_file():
+        raise ApiError(404, "FILE_CONTENT_NOT_FOUND", "File content not found")
+    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=file_row.get("enterprise_id"), project_id=file_row.get("project_id"), user_id=user["user_id"], user_name=user["name"], action_type="file.downloaded", object_type="file_objects", object_id=file_id, description="受控下载同行报告文件")
+    db.commit()
+    return Response(content=path.read_bytes(), media_type=file_row.get("mime_type") or "application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{_safe_file_name(file_row["file_name"])}"'})
+
+
 @router.get("/files/{file_id}/download-url")
-def get_download_url(file_id: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("file:upload"))):
+def get_download_url(file_id: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:read"))):
     file_row = _authorize_file_access(request, db, user, _get_file(db, user["current_tenant_id"], file_id))
     write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=file_row.get("enterprise_id"), project_id=file_row.get("project_id"), user_id=user["user_id"], user_name=user["name"], action_type="file.download_requested", object_type="file_objects", object_id=file_id, description="请求受控文件下载链接")
     db.commit()
@@ -244,13 +282,57 @@ def list_peer_reports(project_id: str, request: Request, db: Session = Depends(g
     return ok({"items": [_peer_report_payload(dict(row)) for row in rows]}, request_id=request.state.request_id)
 
 
+def _run_mock_parse_job(db: Session, *, tenant_id: str, project_id: str, peer_report_id: str, job_id: str) -> None:
+    result_payload = {
+        "standards": [{"peer_report_id": peer_report_id, "extracted_standard_name": "GRI Standards", "confidence": 0.8}],
+        "topics": [{"peer_report_id": peer_report_id, "original_topic_name": "温室气体排放", "confidence": 0.75}],
+        "metrics": [{"peer_report_id": peer_report_id, "original_metric_name": "范围一温室气体排放量", "confidence": 0.72}],
+        "cases": [],
+    }
+    db.execute(text("""
+        UPDATE async_jobs
+        SET job_status='running', progress=10, current_step='mock_parse_started', started_at=COALESCE(started_at, now())
+        WHERE tenant_id=:tenant_id AND job_id=:job_id
+    """), {"tenant_id": tenant_id, "job_id": job_id})
+    db.execute(text("DELETE FROM report_extracted_standards WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id"), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id})
+    db.execute(text("DELETE FROM report_extracted_topics WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id"), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id})
+    db.execute(text("DELETE FROM report_extracted_metrics WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id"), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id})
+    db.execute(text("DELETE FROM report_extracted_cases WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id"), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id})
+    for standard in result_payload["standards"]:
+        db.execute(text("""
+            INSERT INTO report_extracted_standards (tenant_id, project_id, peer_report_id, extracted_standard_name, confidence)
+            VALUES (:tenant_id, :project_id, :peer_report_id, :extracted_standard_name, :confidence)
+        """), {"tenant_id": tenant_id, "project_id": project_id, **standard})
+    for topic in result_payload["topics"]:
+        db.execute(text("""
+            INSERT INTO report_extracted_topics (tenant_id, project_id, peer_report_id, original_topic_name, confidence)
+            VALUES (:tenant_id, :project_id, :peer_report_id, :original_topic_name, :confidence)
+        """), {"tenant_id": tenant_id, "project_id": project_id, **topic})
+    for metric in result_payload["metrics"]:
+        db.execute(text("""
+            INSERT INTO report_extracted_metrics (tenant_id, project_id, peer_report_id, original_metric_name, confidence)
+            VALUES (:tenant_id, :project_id, :peer_report_id, :original_metric_name, :confidence)
+        """), {"tenant_id": tenant_id, "project_id": project_id, **metric})
+    db.execute(text("""
+        UPDATE peer_report_files
+        SET parse_status='pending_human_review', ai_review_status='pending', updated_at=now()
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id})
+    db.execute(text("""
+        UPDATE async_jobs
+        SET job_status='succeeded', progress=100, current_step='mock_parse_completed',
+            result_payload=CAST(:result_payload AS jsonb), finished_at=now()
+        WHERE tenant_id=:tenant_id AND job_id=:job_id
+    """), {"tenant_id": tenant_id, "job_id": job_id, "result_payload": json.dumps(result_payload, ensure_ascii=False)})
+
+
 @router.post("/projects/{project_id}/peer-reports/{peer_report_id}/parse")
 def start_peer_report_parse(project_id: str, peer_report_id: str, payload: ParseOptionsRequest, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:update"))):
     project = _authorize_project(request, db, user, project_id)
     report = _get_peer_report(db, user["current_tenant_id"], project_id, peer_report_id)
     if not report:
         raise ApiError(404, "PEER_REPORT_NOT_FOUND", "Peer report not found")
-    if report["parse_status"] in {"parsing", "ai_reviewing"} and not payload.force_reparse:
+    if report["parse_status"] in {"pending", "parsing", "ai_reviewing"} and not payload.force_reparse:
         raise ApiError(400, "PEER_REPORT_PARSE_IN_PROGRESS", "Peer report parse is already running")
     row = db.execute(text("""
         INSERT INTO async_jobs (tenant_id, enterprise_id, project_id, job_type, job_status, progress, current_step,
@@ -267,8 +349,16 @@ def start_peer_report_parse(project_id: str, peer_report_id: str, payload: Parse
         WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
     """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "peer_report_id": peer_report_id})
     write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="peer_report.parse_requested", object_type="async_jobs", object_id=row["job_id"], description="创建同行报告解析任务")
+    if payload.parser_mode == "mock":
+        _run_mock_parse_job(db, tenant_id=user["current_tenant_id"], project_id=project_id, peer_report_id=peer_report_id, job_id=row["job_id"])
     db.commit()
-    return ok(_job_payload(dict(row)), request_id=request.state.request_id)
+    refreshed = db.execute(text("""
+        SELECT job_id::text, tenant_id::text, enterprise_id::text, project_id::text, job_type, job_status::text,
+          progress, current_step, target_object_type, target_object_id::text, request_payload, result_payload,
+          error_payload, created_at, started_at, finished_at
+        FROM async_jobs WHERE tenant_id=:tenant_id AND job_id=:job_id
+    """), {"tenant_id": user["current_tenant_id"], "job_id": row["job_id"]}).mappings().first()
+    return ok(_job_payload(dict(refreshed)), request_id=request.state.request_id)
 
 
 @router.get("/jobs/{job_id}")
@@ -284,4 +374,8 @@ def get_job(job_id: str, request: Request, db: Session = Depends(get_db), user: 
         raise ApiError(404, "JOB_NOT_FOUND", "Job not found")
     if row["project_id"]:
         _authorize_project(request, db, user, row["project_id"])
+    elif row["enterprise_id"] and not user_can_access_enterprise(user, row["enterprise_id"]):
+        write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=row["enterprise_id"], user_id=user["user_id"], user_name=user["name"], action_type="security.job_access_denied", object_type="async_jobs", object_id=job_id, description="任务不存在或无访问范围", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
+        db.commit()
+        raise ApiError(403, "AUTH_FORBIDDEN", "Access denied")
     return ok(_job_payload(dict(row)), request_id=request.state.request_id)

@@ -55,7 +55,7 @@ export function PeerAnalysisPage() {
   const handleIdentify = async () => {
     if (!accessToken || !enterpriseId) return;
     const result = await identifyGics(accessToken, enterpriseId);
-    setCandidates([result.primary_result, ...result.alternative_results]);
+    setCandidates([result.identification_result, ...result.alternative_results]);
     message.success('已生成GICS候选，请人工确认');
   };
 

@@ -114,7 +114,7 @@ def _candidate_gics(db: Session, enterprise: dict, payload: GicsIdentifyRequest 
     elif any(keyword in haystack for keyword in ["工业", "机械", "machinery", "manufacturing"]):
         preferred = ["20106010", "20106020"]
     elif any(keyword in haystack for keyword in ["电子", "technology", "instrument", "component"]):
-        preferred = ["452030"]
+        preferred = ["45203010"]
     else:
         preferred = ["20106010", "20106020"]
     rows = db.execute(text("""
@@ -179,7 +179,7 @@ def identify_gics(enterprise_id: str, payload: GicsIdentifyRequest, request: Req
     alternatives = [_classification_payload(row, confidence=0.72, reason="同属相近GICS行业，可人工复核") for row in candidates[1:]]
     write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="gics.identified", object_type="enterprises", object_id=enterprise_id, description="生成企业GICS候选结果")
     db.commit()
-    return ok({"enterprise_id": enterprise_id, "primary_result": primary, "alternative_results": alternatives, "requires_human_confirmation": True}, request_id=request.state.request_id)
+    return ok({"enterprise_id": enterprise_id, "identification_result": primary, "alternative_results": alternatives, "requires_human_confirmation": True}, request_id=request.state.request_id)
 
 
 @router.get("/enterprises/{enterprise_id}/gics/current")
@@ -203,15 +203,15 @@ def confirm_gics(enterprise_id: str, payload: GicsConfirmRequest, request: Reque
         INSERT INTO enterprise_gics_history (tenant_id, enterprise_id, gics_level, gics_code, confidence, source, reason, confirmed_by, confirmed_at, is_current)
         VALUES (:tenant_id, :enterprise_id, :gics_level, :gics_code, 1.0000, 'manual', :reason, :user_id, now(), true)
     """), {"tenant_id": user["current_tenant_id"], "enterprise_id": enterprise_id, "gics_level": payload.gics_level, "gics_code": payload.gics_code, "reason": payload.confirmation_note, "user_id": user["user_id"]})
-    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="gics.confirmed", object_type="enterprise_gics_history", object_id=payload.gics_code, description="人工确认企业GICS行业")
+    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=enterprise_id, user_id=user["user_id"], user_name=user["name"], action_type="gics.confirmed", object_type="enterprise_gics_history", object_id=enterprise_id, description="人工确认企业GICS行业")
     db.commit()
     return ok({"enterprise_id": enterprise_id, "current_gics": _current_enterprise_gics(db, user["current_tenant_id"], enterprise_id)}, request_id=request.state.request_id)
 
 
 @router.get("/peer-companies/search")
 def search_peer_companies(request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:read")), keyword: str | None = None, gics_code: str | None = None, limit: int = Query(20, ge=1, le=100)):
-    clauses = ["1=1"]
-    params: dict = {"limit": limit}
+    clauses = ["(metadata->>'manual_tenant_id' IS NULL OR metadata->>'manual_tenant_id'=:tenant_id)"]
+    params: dict = {"limit": limit, "tenant_id": user["current_tenant_id"]}
     if keyword:
         clauses.append("(company_name ILIKE :keyword OR company_short_name ILIKE :keyword OR stock_code ILIKE :keyword)")
         params["keyword"] = f"%{keyword}%"
@@ -255,10 +255,14 @@ def list_project_peers(project_id: str, request: Request, db: Session = Depends(
 def recommend_peers(project_id: str, payload: PeerRecommendRequest, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:update"))):
     project = _authorize_project(request, db, user, project_id)
     current_gics = _current_enterprise_gics(db, user["current_tenant_id"], project["enterprise_id"])
-    if not current_gics and not payload.gics_code:
+    if not current_gics:
         raise ApiError(400, "GICS_NOT_CONFIRMED", "Confirm enterprise GICS before peer recommendation")
-    gics_code = payload.gics_code or current_gics["gics_code"]
-    gics_level = payload.gics_level or current_gics["gics_level"]
+    gics_code = current_gics["gics_code"]
+    gics_level = current_gics["gics_level"]
+    if payload.gics_code and payload.gics_code != gics_code:
+        raise ApiError(400, "GICS_OVERRIDE_NOT_ALLOWED", "Peer recommendation must use the confirmed enterprise GICS")
+    if payload.gics_level and payload.gics_level != gics_level:
+        raise ApiError(400, "GICS_OVERRIDE_NOT_ALLOWED", "Peer recommendation must use the confirmed enterprise GICS")
     if gics_level != 4:
         raise ApiError(400, "GICS_LEVEL_NOT_SUPPORTED", "Peer recommendation requires GICS level 4")
     rows = db.execute(text("""
@@ -271,11 +275,20 @@ def recommend_peers(project_id: str, payload: PeerRecommendRequest, request: Req
                NULL::integer AS latest_report_year,
                false AS has_report_in_library,
                false AS selected
-        FROM peer_company_profiles
+        FROM peer_company_profiles pc
         WHERE gics_level_4_code=:gics_code
+          AND NOT EXISTS (
+              SELECT 1 FROM enterprises e
+              WHERE e.tenant_id=:tenant_id AND e.enterprise_id=:enterprise_id
+                AND (
+                  (e.stock_code IS NOT NULL AND pc.stock_code IS NOT NULL AND e.stock_code=pc.stock_code AND COALESCE(e.exchange, '')=COALESCE(pc.exchange, ''))
+                  OR lower(e.enterprise_name)=lower(pc.company_name)
+                  OR (e.enterprise_short_name IS NOT NULL AND lower(e.enterprise_short_name)=lower(COALESCE(pc.company_short_name, pc.company_name)))
+                )
+          )
         ORDER BY company_name
         LIMIT :limit
-    """), {"gics_code": gics_code, "limit": payload.limit, "prefer_business_similarity": payload.prefer_business_similarity, "prefer_industry_leaders": payload.prefer_industry_leaders}).mappings().all()
+    """), {"gics_code": gics_code, "limit": payload.limit, "prefer_business_similarity": payload.prefer_business_similarity, "prefer_industry_leaders": payload.prefer_industry_leaders, "tenant_id": user["current_tenant_id"], "enterprise_id": project["enterprise_id"]}).mappings().all()
     for row in rows:
         db.execute(text("""
             INSERT INTO project_peer_companies (tenant_id, project_id, peer_company_id, business_similarity_score, industry_leader_score, report_availability_score, overall_score, recommendation_reason, latest_report_year, has_report_in_library, selected)
@@ -294,30 +307,31 @@ def recommend_peers(project_id: str, payload: PeerRecommendRequest, request: Req
     return ok({"project_id": project_id, "recommended_peers": [_peer_payload(row) for row in _project_peer_rows(db, user["current_tenant_id"], project_id)]}, request_id=request.state.request_id)
 
 
-def _resolve_or_create_peer_profile(db: Session, payload: PeerCompanyCreateRequest) -> dict:
+def _resolve_or_create_peer_profile(db: Session, payload: PeerCompanyCreateRequest, tenant_id: str | None = None) -> dict:
     if payload.peer_company_id:
         row = db.execute(text("""
             SELECT peer_company_id::text
             FROM peer_company_profiles
             WHERE peer_company_id=:peer_company_id
-        """), {"peer_company_id": payload.peer_company_id}).mappings().first()
+              AND (metadata->>'manual_tenant_id' IS NULL OR metadata->>'manual_tenant_id'=:tenant_id)
+        """), {"peer_company_id": payload.peer_company_id, "tenant_id": tenant_id}).mappings().first()
         if not row:
             raise ApiError(400, "PEER_COMPANY_INVALID", "Peer company profile is invalid")
         return dict(row)
     if payload.stock_code and payload.exchange:
         row = db.execute(text("""
-            INSERT INTO peer_company_profiles (company_name, stock_code, exchange)
-            VALUES (:company_name, :stock_code, :exchange)
+            INSERT INTO peer_company_profiles (company_name, stock_code, exchange, metadata)
+            VALUES (:company_name, :stock_code, :exchange, jsonb_build_object('manual_tenant_id', :tenant_id))
             ON CONFLICT (stock_code, exchange) DO UPDATE
-            SET company_name=EXCLUDED.company_name, updated_at=now()
+            SET company_name=EXCLUDED.company_name, metadata=jsonb_build_object('manual_tenant_id', :tenant_id), updated_at=now()
             RETURNING peer_company_id::text
-        """), payload.model_dump()).mappings().first()
+        """), {**payload.model_dump(), "tenant_id": tenant_id}).mappings().first()
     else:
         row = db.execute(text("""
-            INSERT INTO peer_company_profiles (company_name, stock_code, exchange)
-            VALUES (:company_name, :stock_code, :exchange)
+            INSERT INTO peer_company_profiles (company_name, stock_code, exchange, metadata)
+            VALUES (:company_name, :stock_code, :exchange, jsonb_build_object('manual_tenant_id', :tenant_id))
             RETURNING peer_company_id::text
-        """), payload.model_dump()).mappings().first()
+        """), {**payload.model_dump(), "tenant_id": tenant_id}).mappings().first()
     return dict(row)
 
 
@@ -325,7 +339,7 @@ def _resolve_or_create_peer_profile(db: Session, payload: PeerCompanyCreateReque
 def add_peer_company(project_id: str, payload: PeerCompanyCreateRequest, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:update"))):
     project = _authorize_project(request, db, user, project_id)
     try:
-        row = _resolve_or_create_peer_profile(db, payload)
+        row = _resolve_or_create_peer_profile(db, payload, user["current_tenant_id"])
         db.execute(text("""
             INSERT INTO project_peer_companies (tenant_id, project_id, peer_company_id, business_similarity_score, industry_leader_score, report_availability_score, overall_score, recommendation_reason, selected)
             VALUES (:tenant_id, :project_id, :peer_company_id, 0.5000, 0.5000, 0.0000, 0.5000, :reason, true)

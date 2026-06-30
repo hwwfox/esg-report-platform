@@ -140,7 +140,8 @@ VALUES
   ('15101050', 'Specialty Chemicals', '特种化学品', 4, '151010', 'active'),
   ('45', 'Information Technology', '信息技术', 1, NULL, 'active'),
   ('4520', 'Technology Hardware & Equipment', '技术硬件与设备', 2, '45', 'active'),
-  ('452030', 'Electronic Equipment, Instruments & Components', '电子设备、仪器和元件', 3, '4520', 'active')
+  ('452030', 'Electronic Equipment, Instruments & Components', '电子设备、仪器和元件', 3, '4520', 'active'),
+  ('45203010', 'Electronic Equipment & Instruments', '电子设备与仪器', 4, '452030', 'active')
 ON CONFLICT (gics_code) DO UPDATE
 SET gics_name_en = EXCLUDED.gics_name_en,
     gics_name_cn = EXCLUDED.gics_name_cn,
