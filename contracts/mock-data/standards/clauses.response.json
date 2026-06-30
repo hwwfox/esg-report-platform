@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "request_id": "req_mock_standard_clauses",
+  "data": {
+    "items": [
+      {
+        "clause_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "clause_code": "GRI_2_7",
+        "clause_no": "2-7",
+        "clause_title": "Employees",
+        "parent_clause_code": null,
+        "clause_level": 1,
+        "clause_text": "Report the total number of employees and breakdowns used for ESG disclosure.",
+        "clause_summary": "员工人数及结构披露",
+        "disclosure_type": "quantitative",
+        "is_required": "required",
+        "applicable_condition": null,
+        "status": "active"
+      }
+    ],
+    "page": 1,
+    "page_size": 100,
+    "total": 1
+  }
+}

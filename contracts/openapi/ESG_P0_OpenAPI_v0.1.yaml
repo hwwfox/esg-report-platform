@@ -1013,7 +1013,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardListResponse'
+                $ref: '#/components/schemas/StandardListApiResponse'
         '400':
           description: Bad Request
           content:
@@ -1076,6 +1076,258 @@ paths:
           default: 50
       security:
       - bearerAuth: []
+  /standards/{standard_code}:
+    parameters:
+    - name: standard_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询标准详情和版本
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardDetailApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /standards/{standard_code}/versions/{version_code}/clauses:
+    parameters:
+    - name: standard_code
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: version_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询标准版本条款
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardClauseListApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /standards/{standard_code}/versions/{version_code}/topics:
+    parameters:
+    - name: standard_code
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: version_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询标准-议题映射
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardTopicMapListApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /standards/import-jobs:
+    post:
+      tags:
+      - 标准议题指标
+      summary: 创建标准库导入任务
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardImportJobRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardImportJobApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /topics/{topic_code}:
+    parameters:
+    - name: topic_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询议题详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /metrics/{metric_code}:
+    parameters:
+    - name: metric_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询指标详情
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
+  /clauses/{clause_code}/metrics:
+    parameters:
+    - name: clause_code
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 标准议题指标
+      summary: 查询条款-指标映射
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClauseMetricMapApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
   /topics:
     get:
       tags:
@@ -1087,7 +1339,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TopicListResponse'
+                $ref: '#/components/schemas/TopicListApiResponse'
         '400':
           description: Bad Request
           content:
@@ -1156,7 +1408,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MetricListResponse'
+                $ref: '#/components/schemas/MetricListApiResponse'
         '400':
           description: Bad Request
           content:
@@ -1231,7 +1483,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecommendedMetricsResponse'
+                $ref: '#/components/schemas/RecommendedMetricsApiResponse'
         '400':
           description: Bad Request
           content:
@@ -5398,6 +5650,196 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Metric'
+    StandardVersion:
+      type: object
+      properties:
+        standard_version_id:
+          type: string
+        standard_version_code:
+          type: string
+        version_name:
+          type: string
+        version_no:
+          type: string
+        effective_date:
+          type: string
+          format: date
+        is_current:
+          type: boolean
+        status:
+          type: string
+    StandardDetailResponse:
+      allOf:
+      - $ref: '#/components/schemas/Standard'
+      - type: object
+        properties:
+          versions:
+            type: array
+            items:
+              $ref: '#/components/schemas/StandardVersion'
+    StandardClause:
+      type: object
+      properties:
+        clause_code:
+          type: string
+        clause_no:
+          type: string
+        clause_title:
+          type: string
+        clause_level:
+          type: integer
+        clause_text:
+          type: string
+        disclosure_type:
+          type: string
+        is_required:
+          type: string
+        status:
+          type: string
+    StandardClauseListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardClause'
+        total:
+          type: integer
+    StandardTopicMap:
+      type: object
+      properties:
+        topic_code:
+          type: string
+        topic_name:
+          type: string
+        topic_category:
+          type: string
+        related_clause_codes:
+          type: array
+          items:
+            type: string
+        is_key_topic:
+          type: boolean
+        status:
+          type: string
+    StandardTopicMapListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardTopicMap'
+    ClauseMetricMapResponse:
+      type: object
+      properties:
+        clause_code:
+          type: string
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metric'
+
+    StandardListApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/StandardListResponse'
+    TopicApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/Topic'
+    MetricApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/Metric'
+    TopicListApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/TopicListResponse'
+    MetricListApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/MetricListResponse'
+    RecommendedMetricsApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RecommendedMetricsResponse'
+    StandardDetailApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/StandardDetailResponse'
+    StandardClauseListApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/StandardClauseListResponse'
+    StandardTopicMapListApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/StandardTopicMapListResponse'
+    ClauseMetricMapApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/ClauseMetricMapResponse'
+    StandardImportJobApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/StandardImportJobResponse'
+    StandardImportJobRequest:
+      type: object
+      required:
+      - standard_code
+      properties:
+        standard_code:
+          type: string
+        source_file_id:
+          type: string
+        import_mode:
+          type: string
+    StandardImportJobResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        job_type:
+          type: string
+        job_status:
+          type: string
+        progress:
+          type: integer
+        request_payload:
+          type: object
     GicsIdentifyRequest:
       type: object
       properties:

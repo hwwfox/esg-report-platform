@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "request_id": "req_mock_standard_topic_maps",
+  "data": {
+    "items": [
+      {
+        "map_id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        "topic_code": "S_EMPLOYMENT",
+        "topic_name": "员工雇佣",
+        "topic_category": "S",
+        "related_clause_codes": ["GRI_2_7"],
+        "is_key_topic": true,
+        "applicability_note": "适用于有员工披露需求的企业",
+        "status": "active"
+      }
+    ]
+  }
+}
