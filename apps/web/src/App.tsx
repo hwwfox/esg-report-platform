@@ -9,6 +9,7 @@ import { EnterpriseProjectPage } from './pages/EnterpriseProjectPage';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { StandardLibraryPage } from './pages/StandardLibraryPage';
 import { PeerAnalysisPage } from './pages/PeerAnalysisPage';
+import { PeerReportUploadPage } from './pages/PeerReportUploadPage';
 import { useAuthStore } from './stores/authStore';
 import { hasAllPermissions } from './utils/permissions';
 
@@ -74,6 +75,7 @@ export function App() {
       <Route path="/enterprise-projects" element={<ProtectedRoute><EnterpriseProjectPage /></ProtectedRoute>} />
       <Route path="/standard-library" element={<ProtectedRoute permissions={['standard:read', 'topic:read', 'metric:read']}><StandardLibraryPage /></ProtectedRoute>} />
       <Route path="/peer-analysis" element={<ProtectedRoute permissions={['project:read']}><PeerAnalysisPage /></ProtectedRoute>} />
+      <Route path="/peer-reports" element={<ProtectedRoute permissions={['project:read']}><PeerReportUploadPage /></ProtectedRoute>} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="*" element={<Navigate to="/workbench" replace />} />
     </Routes>

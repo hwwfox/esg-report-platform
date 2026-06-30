@@ -32,7 +32,7 @@ CROSS JOIN (
   ('platform_admin', '平台管理员', '管理平台级租户、系统配置和全局数据', '["*"]'),
   ('tenant_admin', '租户管理员', '管理当前租户下企业、用户、权限和配置', '["tenant:*","enterprise:*","user:*","project:*","ai_cost:read"]'),
   ('enterprise_admin', '企业管理员', '管理单企业配置、用户和项目', '["enterprise:read","enterprise:update","project:*","user:read"]'),
-  ('project_owner', '项目负责人', '管理ESG报告项目全流程', '["project:*","topic:*","task:*","chapter:*","export:*","ai:*"]'),
+  ('project_owner', '项目负责人', '管理ESG报告项目全流程', '["project:*","topic:*","task:*","chapter:*","export:*","ai:*","file:upload"]'),
   ('esg_expert', 'ESG专家', '审核标准库、同行解析结果和AI输出质量', '["standard:read","topic:read","metric:read","peer_report:review","ai_review:*"]'),
   ('standard_admin', '标准库管理员', '维护标准、议题、指标、映射和校验规则', '["standard:*","topic:*","metric:*"]'),
   ('department_collector', '部门采集员', '填报部门采集任务', '["collection_task:read_assigned","collection_task:write_assigned","file:upload"]'),

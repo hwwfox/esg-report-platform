@@ -1681,6 +1681,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /files/{file_id}/download-url:
+    parameters:
+    - name: file_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - 文件
+      summary: 获取受控文件下载链接
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
   /projects/{project_id}/peer-reports:
     parameters:
     - name: project_id
@@ -1688,6 +1714,19 @@ paths:
       required: true
       schema:
         type: string
+    get:
+      tags:
+      - 同行报告解析
+      summary: 查询同行报告记录
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+      security:
+      - bearerAuth: []
     post:
       tags:
       - 同行报告解析
@@ -5456,15 +5495,25 @@ components:
       properties:
         file_id:
           type: string
+        tenant_id:
+          type: string
+        enterprise_id:
+          type: string
+        project_id:
+          type: string
         file_name:
           type: string
         file_type:
           type: string
         file_size:
           type: integer
-        storage_path:
+        mime_type:
           type: string
         business_type:
+          type: string
+        related_object_type:
+          type: string
+        related_object_id:
           type: string
         upload_status:
           type: string
@@ -5495,6 +5544,8 @@ components:
       properties:
         peer_report_id:
           type: string
+        project_id:
+          type: string
         peer_company_id:
           type: string
         file_id:
@@ -5506,19 +5557,12 @@ components:
     ParseOptionsRequest:
       type: object
       properties:
-        parse_options:
-          type: object
-          properties:
-            extract_standards:
-              type: boolean
-            extract_topics:
-              type: boolean
-            extract_materiality:
-              type: boolean
-            extract_metrics:
-              type: boolean
-            extract_cases:
-              type: boolean
+        force_reparse:
+          type: boolean
+        parser_mode:
+          type: string
+          enum:
+          - mock
     Job:
       type: object
       properties:
