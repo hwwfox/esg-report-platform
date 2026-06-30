@@ -69,6 +69,9 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/workbench" element={<WorkbenchPage />} />
+      <Route path="/enterprise-projects" element={<EnterpriseProjectPage />} />
+      <Route path="/standard-library" element={<StandardLibraryPage />} />
       <Route path="/workbench" element={<ProtectedRoute><WorkbenchPage /></ProtectedRoute>} />
       <Route path="/enterprise-projects" element={<ProtectedRoute><EnterpriseProjectPage /></ProtectedRoute>} />
       <Route path="/standard-library" element={<ProtectedRoute permissions={['standard:read', 'topic:read', 'metric:read']}><StandardLibraryPage /></ProtectedRoute>} />

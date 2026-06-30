@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "request_id": "req_mock_standard_detail",
+  "data": {
+    "standard_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "tenant_id": null,
+    "standard_code": "GRI",
+    "standard_name": "GRI Sustainability Reporting Standards",
+    "standard_short_name": "GRI",
+    "standard_type": "international",
+    "applicable_market": "global",
+    "issuing_body": "Global Reporting Initiative",
+    "description": "公共ESG披露标准示例",
+    "scope_type": "platform_public",
+    "status": "active",
+    "versions": [
+      {
+        "standard_version_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "standard_version_code": "GRI_2021",
+        "version_name": "GRI Standards 2021",
+        "version_no": "2021",
+        "effective_date": "2023-01-01",
+        "expired_date": null,
+        "is_current": true,
+        "status": "active"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "request_id": "req_mock_standard_list",
+  "data": {
+    "items": [
+      {
+        "standard_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "tenant_id": null,
+        "standard_code": "GRI",
+        "standard_name": "GRI Sustainability Reporting Standards",
+        "standard_short_name": "GRI",
+        "standard_type": "international",
+        "applicable_market": "global",
+        "current_version": "2021",
+        "scope_type": "platform_public",
+        "status": "active"
+      }
+    ],
+    "page": 1,
+    "page_size": 20,
+    "total": 1
+  }
+}
