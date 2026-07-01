@@ -10,6 +10,8 @@ from app.modules.enterprises.router import router as enterprises_router
 from app.modules.projects.router import router as projects_router
 from app.modules.standard_library_router import router as standard_library_router
 from app.modules.standard_library.router import router as standard_library_router
+from app.modules.peer.router import router as peer_router
+from app.modules.peer_reports.router import router as peer_reports_router
 
 settings = get_settings()
 
@@ -20,6 +22,8 @@ app.include_router(auth_router)
 app.include_router(enterprises_router)
 app.include_router(projects_router)
 app.include_router(standard_library_router)
+app.include_router(peer_router)
+app.include_router(peer_reports_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_allowed_origins.split(",")],

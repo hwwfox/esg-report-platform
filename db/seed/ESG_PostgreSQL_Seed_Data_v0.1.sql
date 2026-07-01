@@ -32,7 +32,7 @@ CROSS JOIN (
   ('platform_admin', '平台管理员', '管理平台级租户、系统配置和全局数据', '["*"]'),
   ('tenant_admin', '租户管理员', '管理当前租户下企业、用户、权限和配置', '["tenant:*","enterprise:*","user:*","project:*","ai_cost:read"]'),
   ('enterprise_admin', '企业管理员', '管理单企业配置、用户和项目', '["enterprise:read","enterprise:update","project:*","user:read"]'),
-  ('project_owner', '项目负责人', '管理ESG报告项目全流程', '["project:*","topic:*","task:*","chapter:*","export:*","ai:*"]'),
+  ('project_owner', '项目负责人', '管理ESG报告项目全流程', '["project:*","topic:*","task:*","chapter:*","export:*","ai:*","file:upload"]'),
   ('esg_expert', 'ESG专家', '审核标准库、同行解析结果和AI输出质量', '["standard:read","topic:read","metric:read","peer_report:review","ai_review:*"]'),
   ('standard_admin', '标准库管理员', '维护标准、议题、指标、映射和校验规则', '["standard:*","topic:*","metric:*"]'),
   ('department_collector', '部门采集员', '填报部门采集任务', '["collection_task:read_assigned","collection_task:write_assigned","file:upload"]'),
@@ -140,7 +140,8 @@ VALUES
   ('15101050', 'Specialty Chemicals', '特种化学品', 4, '151010', 'active'),
   ('45', 'Information Technology', '信息技术', 1, NULL, 'active'),
   ('4520', 'Technology Hardware & Equipment', '技术硬件与设备', 2, '45', 'active'),
-  ('452030', 'Electronic Equipment, Instruments & Components', '电子设备、仪器和元件', 3, '4520', 'active')
+  ('452030', 'Electronic Equipment, Instruments & Components', '电子设备、仪器和元件', 3, '4520', 'active'),
+  ('45203010', 'Electronic Equipment & Instruments', '电子设备与仪器', 4, '452030', 'active')
 ON CONFLICT (gics_code) DO UPDATE
 SET gics_name_en = EXCLUDED.gics_name_en,
     gics_name_cn = EXCLUDED.gics_name_cn,
@@ -159,6 +160,22 @@ JOIN enterprises e ON e.tenant_id = t.tenant_id AND e.enterprise_code = 'ENT_DEM
 LEFT JOIN users u ON u.tenant_id = t.tenant_id AND u.email = 'project.owner@example.com'
 WHERE t.tenant_code = 'DEFAULT'
 ON CONFLICT DO NOTHING;
+
+-- 同行公司示例池
+INSERT INTO peer_company_profiles (company_name, company_short_name, stock_code, exchange, gics_level_4_code, gics_level_4_name, main_business, metadata)
+VALUES
+  ('工业机械同行A股份有限公司', '同行A', '600101', 'SSE', '20106010', '工业机械', '工业自动化设备和通用机械制造', '{"seed":true}'::jsonb),
+  ('智能装备同行B股份有限公司', '同行B', '000202', 'SZSE', '20106010', '工业机械', '智能装备、工业机器人和成套设备制造', '{"seed":true}'::jsonb),
+  ('重型装备同行C股份有限公司', '同行C', '601303', 'SSE', '20106020', '工程机械与重型运输设备', '工程机械和重型运输设备制造', '{"seed":true}'::jsonb),
+  ('特种化学同行D股份有限公司', '同行D', '300404', 'SZSE', '15101050', '特种化学品', '精细化工和特种材料研发生产', '{"seed":true}'::jsonb)
+ON CONFLICT (stock_code, exchange) DO UPDATE
+SET company_name = EXCLUDED.company_name,
+    company_short_name = EXCLUDED.company_short_name,
+    gics_level_4_code = EXCLUDED.gics_level_4_code,
+    gics_level_4_name = EXCLUDED.gics_level_4_name,
+    main_business = EXCLUDED.main_business,
+    metadata = EXCLUDED.metadata,
+    updated_at = now();
 
 -- =========================================================
 -- 6. 组织架构示例
