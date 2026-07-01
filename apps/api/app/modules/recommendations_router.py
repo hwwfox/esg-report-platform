@@ -68,12 +68,14 @@ def _recommendation_payload(row: dict) -> dict:
         "limitations": row.get("limitations") or [],
         "source_count": len(row.get("source_references") or []),
         "selected": row["selected"],
+        "financial_materiality_distribution": row.get("financial_materiality_distribution") or {},
+        "impact_materiality_distribution": row.get("impact_materiality_distribution") or {},
     }
 
 
 def _approved_report_count(db: Session, tenant_id: str, project_id: str) -> int:
     return int(db.execute(text("""
-        SELECT count(DISTINCT peer_report_id)
+        SELECT count(DISTINCT peer_company_id)
         FROM peer_report_files
         WHERE tenant_id=:tenant_id AND project_id=:project_id
           AND (parse_status='stored' OR approved_at IS NOT NULL)
@@ -109,23 +111,44 @@ def _level(rate: float) -> str:
 
 def _generate_standards(db: Session, tenant_id: str, project_id: str, analyzed: int) -> int:
     rows = db.execute(text("""
-        SELECT COALESCE(res.mapped_standard_code, s.standard_code) AS item_code,
-               COALESCE(res.mapped_standard_name, s.standard_name, res.extracted_standard_name) AS item_name,
-               count(DISTINCT pr.peer_company_id) AS adopted_company_count,
-               jsonb_agg(DISTINCT jsonb_build_object('peer_report_id', res.peer_report_id::text, 'source_type', 'peer_report_standard', 'item_code', COALESCE(res.mapped_standard_code, s.standard_code))) AS sources
-        FROM report_extracted_standards res
-        JOIN peer_report_files pr ON pr.tenant_id=res.tenant_id AND pr.project_id=res.project_id AND pr.peer_report_id=res.peer_report_id
-        LEFT JOIN esg_standards s
-          ON (s.standard_code=res.mapped_standard_code OR lower(s.standard_name)=lower(res.extracted_standard_name))
-         AND (s.tenant_id IS NULL OR s.tenant_id=:tenant_id)
-        WHERE res.tenant_id=:tenant_id AND res.project_id=:project_id
-          AND res.review_status IN ('accepted','edited','approved','confirmed')
-          AND res.include_in_adoption_stats=true
-          AND (pr.parse_status='stored' OR pr.approved_at IS NOT NULL)
-        GROUP BY COALESCE(res.mapped_standard_code, s.standard_code), COALESCE(res.mapped_standard_name, s.standard_name, res.extracted_standard_name)
+        WITH standard_rows AS (
+          SELECT COALESCE(res.mapped_standard_code, s.standard_code) AS item_code,
+                 COALESCE(s.standard_name, res.mapped_standard_name, res.extracted_standard_name) AS item_name,
+                 pr.peer_company_id,
+                 res.peer_report_id,
+                 res.source_references
+          FROM report_extracted_standards res
+          JOIN peer_report_files pr ON pr.tenant_id=res.tenant_id AND pr.project_id=res.project_id AND pr.peer_report_id=res.peer_report_id
+          LEFT JOIN esg_standards s
+            ON (s.standard_code=res.mapped_standard_code OR lower(s.standard_name)=lower(res.extracted_standard_name))
+           AND (s.tenant_id IS NULL OR s.tenant_id=:tenant_id)
+           AND s.status='active'
+          WHERE res.tenant_id=:tenant_id AND res.project_id=:project_id
+            AND res.review_status IN ('accepted','edited','approved','confirmed')
+            AND res.include_in_adoption_stats=true
+            AND (pr.parse_status='stored' OR pr.approved_at IS NOT NULL)
+            AND COALESCE(res.mapped_standard_code, s.standard_code) IS NOT NULL
+        )
+        SELECT item_code,
+               (array_agg(item_name ORDER BY item_name) FILTER (WHERE item_name IS NOT NULL))[1] AS item_name,
+               count(DISTINCT peer_company_id) AS adopted_company_count,
+               jsonb_agg(DISTINCT jsonb_build_object(
+                 'peer_report_id', peer_report_id::text,
+                 'source_type', 'peer_report_standard',
+                 'item_code', item_code,
+                 'source_references', COALESCE(source_references, '[]'::jsonb)
+               )) AS sources
+        FROM standard_rows
+        GROUP BY item_code
     """), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+    active_codes = [row["item_code"] for row in rows]
+    db.execute(text("""
+        UPDATE project_recommendations
+        SET selected=false, review_status='ignored'
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND recommendation_type='standard'
+          AND NOT (item_code = ANY(:active_codes))
+    """), {"tenant_id": tenant_id, "project_id": project_id, "active_codes": active_codes})
     for row in rows:
-        code = row["item_code"] or row["item_name"]
         rate = float(row["adopted_company_count"] or 0) / analyzed
         db.execute(text("""
             INSERT INTO project_recommendations (tenant_id, project_id, recommendation_type, item_code, item_name, adoption_rate,
@@ -134,31 +157,66 @@ def _generate_standards(db: Session, tenant_id: str, project_id: str, analyzed: 
             ON CONFLICT (project_id, recommendation_type, item_code) DO UPDATE SET
               item_name=EXCLUDED.item_name, adoption_rate=EXCLUDED.adoption_rate, adopted_company_count=EXCLUDED.adopted_company_count,
               analyzed_report_count=EXCLUDED.analyzed_report_count, recommendation_level=EXCLUDED.recommendation_level,
-              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references
-        """), {"tenant_id": tenant_id, "project_id": project_id, "item_code": code, "item_name": row["item_name"], "rate": rate, "count": row["adopted_company_count"], "analyzed": analyzed, "level": _level(rate), "reason": f"基于{analyzed}份已审核同行报告的系统统计生成，采用率由系统计算。", "limitations": json.dumps([] if analyzed >= 3 else ["样本数量较少，推荐结论需人工复核。"]), "sources": json.dumps(row["sources"] or [])})
+              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references, selected=true,
+              review_status=CASE WHEN project_recommendations.review_status='accepted' THEN project_recommendations.review_status ELSE 'pending' END
+        """), {"tenant_id": tenant_id, "project_id": project_id, "item_code": row["item_code"], "item_name": row["item_name"], "rate": rate, "count": row["adopted_company_count"], "analyzed": analyzed, "level": _level(rate), "reason": f"基于{analyzed}家已审核同行公司的系统统计生成，采用率由系统计算。", "limitations": json.dumps([] if analyzed >= 3 else ["样本数量较少，推荐结论需人工复核。"]), "sources": json.dumps(row["sources"] or [])})
     return len(rows)
 
 
 def _generate_topics(db: Session, tenant_id: str, project_id: str, analyzed: int) -> int:
     rows = db.execute(text("""
-        SELECT ret.mapped_topic_code AS item_code, COALESCE(ret.mapped_topic_name, t.topic_name, ret.original_topic_name) AS item_name,
-               COALESCE(t.topic_category::text, ret.topic_category::text, 'environment') AS topic_category,
-               count(DISTINCT pr.peer_company_id) AS adopted_company_count,
-               jsonb_object_agg(COALESCE(ret.financial_materiality::text, 'unknown'), materiality_counts.financial_count) FILTER (WHERE materiality_counts.financial_count IS NOT NULL) AS financial_distribution,
-               jsonb_object_agg(COALESCE(ret.impact_materiality::text, 'unknown'), materiality_counts.impact_count) FILTER (WHERE materiality_counts.impact_count IS NOT NULL) AS impact_distribution,
-               jsonb_agg(DISTINCT jsonb_build_object('peer_report_id', ret.peer_report_id::text, 'source_type', 'peer_report_topic', 'item_code', ret.mapped_topic_code)) AS sources
-        FROM report_extracted_topics ret
-        JOIN peer_report_files pr ON pr.tenant_id=ret.tenant_id AND pr.project_id=ret.project_id AND pr.peer_report_id=ret.peer_report_id
-        LEFT JOIN esg_topics t
-          ON t.topic_code=ret.mapped_topic_code
-         AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id)
-        LEFT JOIN LATERAL (SELECT count(*) AS financial_count, count(*) AS impact_count) materiality_counts ON true
-        WHERE ret.tenant_id=:tenant_id AND ret.project_id=:project_id AND ret.mapped_topic_code IS NOT NULL
-          AND ret.review_status IN ('accepted','edited','approved','confirmed')
-          AND ret.include_in_topic_stats=true
-          AND (pr.parse_status='stored' OR pr.approved_at IS NOT NULL)
-        GROUP BY ret.mapped_topic_code, COALESCE(ret.mapped_topic_name, t.topic_name, ret.original_topic_name), COALESCE(t.topic_category::text, ret.topic_category::text, 'environment')
+        WITH topic_rows AS (
+          SELECT ret.mapped_topic_code AS item_code,
+                 COALESCE(t.topic_name, ret.mapped_topic_name, ret.original_topic_name) AS item_name,
+                 COALESCE(t.topic_category::text, ret.topic_category::text, 'E') AS topic_category,
+                 pr.peer_company_id,
+                 ret.peer_report_id,
+                 COALESCE(ret.financial_materiality::text, 'unknown') AS financial_materiality,
+                 COALESCE(ret.impact_materiality::text, 'unknown') AS impact_materiality,
+                 ret.source_references
+          FROM report_extracted_topics ret
+          JOIN peer_report_files pr ON pr.tenant_id=ret.tenant_id AND pr.project_id=ret.project_id AND pr.peer_report_id=ret.peer_report_id
+          LEFT JOIN esg_topics t
+            ON t.topic_code=ret.mapped_topic_code
+           AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id)
+           AND t.status='active'
+          WHERE ret.tenant_id=:tenant_id AND ret.project_id=:project_id AND ret.mapped_topic_code IS NOT NULL
+            AND ret.review_status IN ('accepted','edited','approved','confirmed')
+            AND ret.include_in_topic_stats=true
+            AND (pr.parse_status='stored' OR pr.approved_at IS NOT NULL)
+        ), financial_counts AS (
+          SELECT item_code, jsonb_object_agg(financial_materiality, bucket_count) AS financial_distribution
+          FROM (SELECT item_code, financial_materiality, count(*) AS bucket_count FROM topic_rows GROUP BY item_code, financial_materiality) buckets
+          GROUP BY item_code
+        ), impact_counts AS (
+          SELECT item_code, jsonb_object_agg(impact_materiality, bucket_count) AS impact_distribution
+          FROM (SELECT item_code, impact_materiality, count(*) AS bucket_count FROM topic_rows GROUP BY item_code, impact_materiality) buckets
+          GROUP BY item_code
+        )
+        SELECT tr.item_code,
+               (array_agg(tr.item_name ORDER BY tr.item_name) FILTER (WHERE tr.item_name IS NOT NULL))[1] AS item_name,
+               (array_agg(tr.topic_category ORDER BY CASE tr.topic_category WHEN 'E' THEN 1 WHEN 'S' THEN 2 WHEN 'G' THEN 3 ELSE 4 END) FILTER (WHERE tr.topic_category IN ('E','S','G')))[1] AS topic_category,
+               count(DISTINCT tr.peer_company_id) AS adopted_company_count,
+               fc.financial_distribution,
+               ic.impact_distribution,
+               jsonb_agg(DISTINCT jsonb_build_object(
+                 'peer_report_id', tr.peer_report_id::text,
+                 'source_type', 'peer_report_topic',
+                 'item_code', tr.item_code,
+                 'source_references', COALESCE(tr.source_references, '[]'::jsonb)
+               )) AS sources
+        FROM topic_rows tr
+        LEFT JOIN financial_counts fc ON fc.item_code=tr.item_code
+        LEFT JOIN impact_counts ic ON ic.item_code=tr.item_code
+        GROUP BY tr.item_code, fc.financial_distribution, ic.impact_distribution
     """), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+    active_codes = [row["item_code"] for row in rows]
+    db.execute(text("""
+        UPDATE project_recommendations
+        SET selected=false, review_status='ignored'
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND recommendation_type='topic'
+          AND NOT (item_code = ANY(:active_codes))
+    """), {"tenant_id": tenant_id, "project_id": project_id, "active_codes": active_codes})
     for row in rows:
         rate = float(row["adopted_company_count"] or 0) / analyzed
         db.execute(text("""
@@ -171,8 +229,9 @@ def _generate_topics(db: Session, tenant_id: str, project_id: str, analyzed: int
               item_name=EXCLUDED.item_name, adoption_rate=EXCLUDED.adoption_rate, adopted_company_count=EXCLUDED.adopted_company_count,
               analyzed_report_count=EXCLUDED.analyzed_report_count, recommendation_level=EXCLUDED.recommendation_level,
               financial_materiality_distribution=EXCLUDED.financial_materiality_distribution, impact_materiality_distribution=EXCLUDED.impact_materiality_distribution,
-              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references
-        """), {"tenant_id": tenant_id, "project_id": project_id, "item_code": row["item_code"], "item_name": row["item_name"], "rate": rate, "count": row["adopted_company_count"], "analyzed": analyzed, "level": _level(rate), "financial": json.dumps(row["financial_distribution"] or {}), "impact": json.dumps(row["impact_distribution"] or {}), "reason": f"基于{analyzed}份已审核同行报告的系统统计生成，重要性分布来自人工审核结果。", "limitations": json.dumps([] if analyzed >= 3 else ["样本数量较少，推荐结论需人工复核。"]), "sources": json.dumps(row["sources"] or [])})
+              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references, selected=true,
+              review_status=CASE WHEN project_recommendations.review_status='accepted' THEN project_recommendations.review_status ELSE 'pending' END
+        """), {"tenant_id": tenant_id, "project_id": project_id, "item_code": row["item_code"], "item_name": row["item_name"], "rate": rate, "count": row["adopted_company_count"], "analyzed": analyzed, "level": _level(rate), "financial": json.dumps(row["financial_distribution"] or {}), "impact": json.dumps(row["impact_distribution"] or {}), "reason": f"基于{analyzed}家已审核同行公司的系统统计生成，重要性分布来自人工审核结果。", "limitations": json.dumps([] if analyzed >= 3 else ["样本数量较少，推荐结论需人工复核。"]), "sources": json.dumps(row["sources"] or [])})
     return len(rows)
 
 
@@ -201,7 +260,8 @@ def generate_topics(project_id: str, payload: RecommendationGenerateRequest, req
 def _list_recommendations(db: Session, tenant_id: str, project_id: str, item_type: str) -> list[dict]:
     rows = db.execute(text("""
         SELECT recommendation_id::text, recommendation_type, item_code, item_name, adoption_rate, adopted_company_count,
-               analyzed_report_count, recommendation_level, reason, limitations, source_references, selected
+               analyzed_report_count, recommendation_level, financial_materiality_distribution, impact_materiality_distribution,
+               reason, limitations, source_references, selected
         FROM project_recommendations
         WHERE tenant_id=:tenant_id AND project_id=:project_id AND recommendation_type=:item_type
         ORDER BY adoption_rate DESC NULLS LAST, item_name
@@ -245,13 +305,21 @@ def confirm_standards(project_id: str, payload: ProjectStandardsConfirmRequest, 
         LEFT JOIN LATERAL (
           SELECT standard_version_id, standard_version_code FROM standard_versions
           WHERE standard_id=s.standard_id AND status='active'
-          ORDER BY effective_date DESC NULLS LAST LIMIT 1
+          ORDER BY is_current DESC, effective_date DESC NULLS LAST LIMIT 1
         ) sv ON true
         WHERE s.standard_code = ANY(:codes)
           AND (s.tenant_id IS NULL OR s.tenant_id=:tenant_id)
+          AND s.status='active'
     """), {"codes": payload.selected_standard_codes, "tenant_id": user["current_tenant_id"]}).mappings().all()
     if len(rows) != len(set(payload.selected_standard_codes)):
         raise ApiError(400, "PROJECT_STANDARD_UNKNOWN", "Selected standard contains unknown code")
+    selected_standard_ids = [row["standard_id"] for row in rows]
+    db.execute(text("""
+        UPDATE project_standards
+        SET selected=false
+        WHERE tenant_id=:tenant_id AND project_id=:project_id
+          AND NOT (standard_id = ANY(:standard_ids))
+    """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "standard_ids": selected_standard_ids})
     for row in rows:
         snapshot = {"standard_code": row["standard_code"], "standard_name": row["standard_name"], "standard_version_code": row["standard_version_code"]}
         db.execute(text("""
@@ -260,6 +328,7 @@ def confirm_standards(project_id: str, payload: ProjectStandardsConfirmRequest, 
             ON CONFLICT (project_id, standard_id) DO UPDATE SET standard_version_id=EXCLUDED.standard_version_id,
               standard_snapshot=EXCLUDED.standard_snapshot, source=EXCLUDED.source, selected=true, confirmed_by=EXCLUDED.confirmed_by, confirmed_at=now()
         """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "standard_id": row["standard_id"], "version_id": row["standard_version_id"], "snapshot": json.dumps(snapshot), "user_id": user["user_id"]})
+    db.execute(text("UPDATE report_projects SET selected_standard_codes=:codes, updated_at=now() WHERE tenant_id=:tenant_id AND project_id=:project_id"), {"codes": payload.selected_standard_codes, "tenant_id": user["current_tenant_id"], "project_id": project_id})
     db.execute(text("UPDATE project_recommendations SET selected=(item_code = ANY(:codes)), review_status=CASE WHEN item_code = ANY(:codes) THEN 'accepted' ELSE 'ignored' END WHERE tenant_id=:tenant_id AND project_id=:project_id AND recommendation_type='standard'"), {"codes": payload.selected_standard_codes, "tenant_id": user["current_tenant_id"], "project_id": project_id})
     write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="project_standards.confirmed", object_type="project_standards", object_id=project_id, description="确认项目标准")
     db.commit()
@@ -275,9 +344,10 @@ def accept_topics(project_id: str, payload: AcceptTopicsRequest, request: Reques
         SELECT pr.recommendation_id::text, pr.item_code, pr.item_name, pr.adoption_rate, pr.recommendation_level,
                pr.financial_materiality_distribution, pr.impact_materiality_distribution, t.topic_id::text, t.topic_category::text
         FROM project_recommendations pr
-        LEFT JOIN esg_topics t
+        JOIN esg_topics t
           ON t.topic_code=pr.item_code
          AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id)
+         AND t.status='active'
         WHERE pr.tenant_id=:tenant_id AND pr.project_id=:project_id AND pr.recommendation_type='topic'
           AND pr.recommendation_id = ANY(:ids)
     """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "ids": payload.recommendation_ids}).mappings().all()
@@ -293,13 +363,13 @@ def accept_topics(project_id: str, payload: AcceptTopicsRequest, request: Reques
             ON CONFLICT (project_id, topic_code) DO UPDATE SET topic_name=EXCLUDED.topic_name, adoption_rate=EXCLUDED.adoption_rate,
               priority=EXCLUDED.priority, status='active', selected=true, locked_at=COALESCE(project_topics.locked_at, now()), updated_at=now()
             RETURNING project_topic_id::text
-        """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "topic_id": row["topic_id"], "topic_code": row["item_code"], "topic_name": row["item_name"], "topic_category": row["topic_category"] or "environment", "adoption_rate": row["adoption_rate"], "priority": row["recommendation_level"]}).mappings().first()
+        """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "topic_id": row["topic_id"], "topic_code": row["item_code"], "topic_name": row["item_name"], "topic_category": row["topic_category"], "adoption_rate": row["adoption_rate"], "priority": row["recommendation_level"]}).mappings().first()
         metrics = db.execute(text("""
             SELECT m.metric_id::text, m.metric_code, m.metric_name, m.metric_type::text, m.data_type::text, m.default_unit, tmm.is_required
             FROM topic_metric_maps tmm
-            JOIN esg_topics t ON t.topic_id=tmm.topic_id AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id)
-            JOIN esg_metrics m ON m.metric_id=tmm.metric_id AND (m.tenant_id IS NULL OR m.tenant_id=:tenant_id)
-            WHERE t.topic_code=:topic_code AND tmm.default_selected=true
+            JOIN esg_topics t ON t.topic_id=tmm.topic_id AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id) AND t.status='active'
+            JOIN esg_metrics m ON m.metric_id=tmm.metric_id AND (m.tenant_id IS NULL OR m.tenant_id=:tenant_id) AND m.status='active'
+            WHERE t.topic_code=:topic_code AND tmm.default_selected=true AND tmm.status='active'
         """), {"topic_code": row["item_code"], "tenant_id": user["current_tenant_id"]}).mappings().all()
         for metric in metrics:
             snapshot = {"metric_code": metric["metric_code"], "metric_name": metric["metric_name"]}
@@ -313,7 +383,22 @@ def accept_topics(project_id: str, payload: AcceptTopicsRequest, request: Reques
                   metric_snapshot=EXCLUDED.metric_snapshot, status='active'
             """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "project_topic_id": project_topic["project_topic_id"], "metric_id": metric["metric_id"], "metric_code": metric["metric_code"], "metric_name": metric["metric_name"], "metric_type": metric["metric_type"], "data_type": metric["data_type"], "unit": metric["default_unit"], "is_required": metric["is_required"], "snapshot": json.dumps(snapshot)})
         created += 1
-    db.execute(text("UPDATE project_recommendations SET selected=(recommendation_id = ANY(:ids)), review_status=CASE WHEN recommendation_id = ANY(:ids) THEN 'accepted' ELSE review_status END WHERE tenant_id=:tenant_id AND project_id=:project_id AND recommendation_type='topic'"), {"ids": payload.recommendation_ids, "tenant_id": user["current_tenant_id"], "project_id": project_id})
+    selected_topic_codes = [row["item_code"] for row in rows]
+    db.execute(text("""
+        UPDATE project_topics
+        SET selected=false, status='inactive', updated_at=now()
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND source='recommendation'
+          AND NOT (topic_code = ANY(:topic_codes))
+    """), {"topic_codes": selected_topic_codes, "tenant_id": user["current_tenant_id"], "project_id": project_id})
+    db.execute(text("""
+        UPDATE project_topic_metrics ptm
+        SET status='inactive'
+        FROM project_topics pt
+        WHERE pt.project_topic_id=ptm.project_topic_id
+          AND pt.tenant_id=:tenant_id AND pt.project_id=:project_id AND pt.source='recommendation'
+          AND NOT (pt.topic_code = ANY(:topic_codes))
+    """), {"topic_codes": selected_topic_codes, "tenant_id": user["current_tenant_id"], "project_id": project_id})
+    db.execute(text("UPDATE project_recommendations SET selected=(recommendation_id = ANY(:ids)), review_status=CASE WHEN recommendation_id = ANY(:ids) THEN 'accepted' ELSE 'ignored' END WHERE tenant_id=:tenant_id AND project_id=:project_id AND recommendation_type='topic'"), {"ids": payload.recommendation_ids, "tenant_id": user["current_tenant_id"], "project_id": project_id})
     write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="project_topics.accepted", object_type="project_topics", object_id=project_id, description="接受推荐议题并生成指标快照")
     db.commit()
     return ok({"accepted_topic_count": created}, request_id=request.state.request_id)
