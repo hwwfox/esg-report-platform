@@ -1,10 +1,21 @@
-import { Alert, Button, Card, Form, Input, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Space, Table, Tag, Typography, message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import type { Recommendation } from '../services/recommendations';
-import { acceptProjectTopics, confirmProjectStandards, generateStandardRecommendations, generateTopicRecommendations, listStandardRecommendations, listTopicRecommendations } from '../services/recommendations';
+import type { Recommendation, SourceReference } from '../services/recommendations';
+import { acceptProjectTopics, confirmProjectStandards, generateStandardRecommendations, generateTopicRecommendations, getRecommendationSources, listStandardRecommendations, listTopicRecommendations } from '../services/recommendations';
 import { useAuthStore } from '../stores/authStore';
 
 const levelColor: Record<string, string> = { high: 'green', medium: 'blue', low: 'orange' };
+
+function renderDistribution(distribution?: Record<string, number>) {
+  const entries = Object.entries(distribution ?? {}).filter(([, count]) => count > 0);
+  if (!entries.length) return '-';
+  return <Space wrap>{entries.map(([level, count]) => <Tag key={level}>{level}: {count}</Tag>)}</Space>;
+}
+
+function renderLimitations(limitations?: string[]) {
+  if (!limitations?.length) return '-';
+  return <Space direction="vertical" size={4}>{limitations.map((item) => <Tag key={item} color="gold">{item}</Tag>)}</Space>;
+}
 
 export function RecommendationPage() {
   const token = useAuthStore((state) => state.accessToken);
@@ -13,6 +24,8 @@ export function RecommendationPage() {
   const [topics, setTopics] = useState<Recommendation[]>([]);
   const [selectedStandardIds, setSelectedStandardIds] = useState<string[]>([]);
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
+  const [sources, setSources] = useState<SourceReference[]>([]);
+  const [sourceModalOpen, setSourceModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const canLoad = Boolean(token && projectId.trim());
@@ -40,15 +53,33 @@ export function RecommendationPage() {
     void load();
   }, []);
 
+  const showSources = async (recommendationId: string) => {
+    if (!token || !projectId.trim()) return;
+    try {
+      const response = await getRecommendationSources(token, projectId.trim(), recommendationId);
+      setSources(response.sources);
+      setSourceModalOpen(true);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载来源失败');
+    }
+  };
+
   const columns = useMemo(() => [
     { title: '编码', render: (_: unknown, record: Recommendation) => record.standard_code ?? record.topic_code },
     { title: '名称', dataIndex: 'item_name' },
     { title: '采用率', render: (_: unknown, record: Recommendation) => `${Math.round((record.adoption_rate ?? 0) * 100)}%` },
     { title: '采用/样本', render: (_: unknown, record: Recommendation) => `${record.adopted_company_count}/${record.analyzed_report_count}` },
     { title: '等级', dataIndex: 'recommendation_level', render: (value: string) => <Tag color={levelColor[value] ?? 'default'}>{value}</Tag> },
-    { title: '来源数', dataIndex: 'source_count' },
+    { title: '限制说明', dataIndex: 'limitations', render: renderLimitations },
+    { title: '来源', render: (_: unknown, record: Recommendation) => <Button type="link" disabled={!record.source_count} onClick={() => void showSources(record.recommendation_id)}>查看来源（{record.source_count}）</Button> },
     { title: '推荐理由', dataIndex: 'reason' },
-  ], []);
+  ], [projectId, token]);
+
+  const topicColumns = useMemo(() => [
+    ...columns,
+    { title: '财务重要性分布', render: (_: unknown, record: Recommendation) => renderDistribution(record.financial_materiality_distribution) },
+    { title: '影响重要性分布', render: (_: unknown, record: Recommendation) => renderDistribution(record.impact_materiality_distribution) },
+  ], [columns]);
 
   const handleGenerate = async () => {
     if (!token || !projectId.trim()) return;
@@ -99,8 +130,16 @@ export function RecommendationPage() {
         <Table rowKey="recommendation_id" loading={loading} dataSource={standards} columns={columns} rowSelection={{ selectedRowKeys: selectedStandardIds, onChange: (keys) => setSelectedStandardIds(keys as string[])  }} pagination={false} />
       </Card>
       <Card title="推荐议题" extra={<Button disabled={!selectedTopicIds.length} onClick={handleAcceptTopics}>接受议题并生成指标快照</Button>}>
-        <Table rowKey="recommendation_id" loading={loading} dataSource={topics} columns={columns} rowSelection={{ selectedRowKeys: selectedTopicIds, onChange: (keys) => setSelectedTopicIds(keys as string[]) }} pagination={false} />
+        <Table rowKey="recommendation_id" loading={loading} dataSource={topics} columns={topicColumns} rowSelection={{ selectedRowKeys: selectedTopicIds, onChange: (keys) => setSelectedTopicIds(keys as string[]) }} pagination={false} />
       </Card>
+      <Modal title="推荐来源" open={sourceModalOpen} footer={null} onCancel={() => setSourceModalOpen(false)} width={760}>
+        <Table rowKey={(_, index) => String(index)} dataSource={sources} pagination={false} columns={[
+          { title: '报告ID', dataIndex: 'peer_report_id' },
+          { title: '页码', dataIndex: 'page_no', render: (value?: number) => value ?? '-' },
+          { title: '章节', dataIndex: 'section_title', render: (value?: string) => value ?? '-' },
+          { title: '引用文本', dataIndex: 'quoted_text', render: (value?: string) => value ?? '-' },
+        ]} />
+      </Modal>
     </main>
   );
 }

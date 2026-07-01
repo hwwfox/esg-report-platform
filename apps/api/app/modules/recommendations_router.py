@@ -132,13 +132,13 @@ def _generate_standards(db: Session, tenant_id: str, project_id: str, analyzed: 
         SELECT item_code,
                (array_agg(item_name ORDER BY item_name) FILTER (WHERE item_name IS NOT NULL))[1] AS item_name,
                count(DISTINCT peer_company_id) AS adopted_company_count,
-               jsonb_agg(DISTINCT jsonb_build_object(
+               jsonb_agg(DISTINCT COALESCE(source_ref, jsonb_build_object(
                  'peer_report_id', peer_report_id::text,
                  'source_type', 'peer_report_standard',
-                 'item_code', item_code,
-                 'source_references', COALESCE(source_references, '[]'::jsonb)
-               )) AS sources
+                 'item_code', item_code
+               ))) AS sources
         FROM standard_rows
+        LEFT JOIN LATERAL jsonb_array_elements(COALESCE(source_references, '[]'::jsonb)) AS source_items(source_ref) ON true
         GROUP BY item_code
     """), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
     active_codes = [row["item_code"] for row in rows]
@@ -157,8 +157,9 @@ def _generate_standards(db: Session, tenant_id: str, project_id: str, analyzed: 
             ON CONFLICT (project_id, recommendation_type, item_code) DO UPDATE SET
               item_name=EXCLUDED.item_name, adoption_rate=EXCLUDED.adoption_rate, adopted_company_count=EXCLUDED.adopted_company_count,
               analyzed_report_count=EXCLUDED.analyzed_report_count, recommendation_level=EXCLUDED.recommendation_level,
-              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references, selected=true,
-              review_status=CASE WHEN project_recommendations.review_status='accepted' THEN project_recommendations.review_status ELSE 'pending' END
+              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references,
+              selected=CASE WHEN project_recommendations.review_status IN ('accepted','ignored') THEN project_recommendations.selected ELSE true END,
+              review_status=CASE WHEN project_recommendations.review_status IN ('accepted','ignored') THEN project_recommendations.review_status ELSE 'pending' END
         """), {"tenant_id": tenant_id, "project_id": project_id, "item_code": row["item_code"], "item_name": row["item_name"], "rate": rate, "count": row["adopted_company_count"], "analyzed": analyzed, "level": _level(rate), "reason": f"基于{analyzed}家已审核同行公司的系统统计生成，采用率由系统计算。", "limitations": json.dumps([] if analyzed >= 3 else ["样本数量较少，推荐结论需人工复核。"]), "sources": json.dumps(row["sources"] or [])})
     return len(rows)
 
@@ -199,13 +200,13 @@ def _generate_topics(db: Session, tenant_id: str, project_id: str, analyzed: int
                count(DISTINCT tr.peer_company_id) AS adopted_company_count,
                fc.financial_distribution,
                ic.impact_distribution,
-               jsonb_agg(DISTINCT jsonb_build_object(
+               jsonb_agg(DISTINCT COALESCE(source_ref, jsonb_build_object(
                  'peer_report_id', tr.peer_report_id::text,
                  'source_type', 'peer_report_topic',
-                 'item_code', tr.item_code,
-                 'source_references', COALESCE(tr.source_references, '[]'::jsonb)
-               )) AS sources
+                 'item_code', tr.item_code
+               ))) AS sources
         FROM topic_rows tr
+        LEFT JOIN LATERAL jsonb_array_elements(COALESCE(tr.source_references, '[]'::jsonb)) AS source_items(source_ref) ON true
         LEFT JOIN financial_counts fc ON fc.item_code=tr.item_code
         LEFT JOIN impact_counts ic ON ic.item_code=tr.item_code
         GROUP BY tr.item_code, fc.financial_distribution, ic.impact_distribution
@@ -229,8 +230,9 @@ def _generate_topics(db: Session, tenant_id: str, project_id: str, analyzed: int
               item_name=EXCLUDED.item_name, adoption_rate=EXCLUDED.adoption_rate, adopted_company_count=EXCLUDED.adopted_company_count,
               analyzed_report_count=EXCLUDED.analyzed_report_count, recommendation_level=EXCLUDED.recommendation_level,
               financial_materiality_distribution=EXCLUDED.financial_materiality_distribution, impact_materiality_distribution=EXCLUDED.impact_materiality_distribution,
-              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references, selected=true,
-              review_status=CASE WHEN project_recommendations.review_status='accepted' THEN project_recommendations.review_status ELSE 'pending' END
+              reason=EXCLUDED.reason, limitations=EXCLUDED.limitations, source_references=EXCLUDED.source_references,
+              selected=CASE WHEN project_recommendations.review_status IN ('accepted','ignored') THEN project_recommendations.selected ELSE true END,
+              review_status=CASE WHEN project_recommendations.review_status IN ('accepted','ignored') THEN project_recommendations.review_status ELSE 'pending' END
         """), {"tenant_id": tenant_id, "project_id": project_id, "item_code": row["item_code"], "item_name": row["item_name"], "rate": rate, "count": row["adopted_company_count"], "analyzed": analyzed, "level": _level(rate), "financial": json.dumps(row["financial_distribution"] or {}), "impact": json.dumps(row["impact_distribution"] or {}), "reason": f"基于{analyzed}家已审核同行公司的系统统计生成，重要性分布来自人工审核结果。", "limitations": json.dumps([] if analyzed >= 3 else ["样本数量较少，推荐结论需人工复核。"]), "sources": json.dumps(row["sources"] or [])})
     return len(rows)
 

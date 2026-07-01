@@ -1,5 +1,15 @@
 const API_BASE = '/api/v1';
 
+export interface SourceReference {
+  peer_report_id?: string;
+  source_type?: string;
+  item_code?: string;
+  page_no?: number;
+  section_title?: string;
+  quoted_text?: string;
+  [key: string]: unknown;
+}
+
 export interface Recommendation {
   recommendation_id: string;
   item_type: 'standard' | 'topic';
@@ -14,6 +24,8 @@ export interface Recommendation {
   limitations?: string[];
   source_count: number;
   selected: boolean;
+  financial_materiality_distribution?: Record<string, number>;
+  impact_materiality_distribution?: Record<string, number>;
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
@@ -46,6 +58,10 @@ export async function listStandardRecommendations(token: string, projectId: stri
 
 export async function listTopicRecommendations(token: string, projectId: string): Promise<{ items: Recommendation[] }> {
   return parseResponse<{ items: Recommendation[] }>(await fetch(`${API_BASE}/projects/${projectId}/recommendations/topics`, { headers: authHeaders(token) }));
+}
+
+export async function getRecommendationSources(token: string, projectId: string, recommendationId: string): Promise<{ recommendation_id: string; sources: SourceReference[] }> {
+  return parseResponse<{ recommendation_id: string; sources: SourceReference[] }>(await fetch(`${API_BASE}/projects/${projectId}/recommendations/${recommendationId}/sources`, { headers: authHeaders(token) }));
 }
 
 export async function confirmProjectStandards(token: string, projectId: string, selectedStandardCodes: string[]) {
