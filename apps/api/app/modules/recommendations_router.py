@@ -115,7 +115,9 @@ def _generate_standards(db: Session, tenant_id: str, project_id: str, analyzed: 
                jsonb_agg(DISTINCT jsonb_build_object('peer_report_id', res.peer_report_id::text, 'source_type', 'peer_report_standard', 'item_code', COALESCE(res.mapped_standard_code, s.standard_code))) AS sources
         FROM report_extracted_standards res
         JOIN peer_report_files pr ON pr.tenant_id=res.tenant_id AND pr.project_id=res.project_id AND pr.peer_report_id=res.peer_report_id
-        LEFT JOIN esg_standards s ON s.standard_code=res.mapped_standard_code OR lower(s.standard_name)=lower(res.extracted_standard_name)
+        LEFT JOIN esg_standards s
+          ON (s.standard_code=res.mapped_standard_code OR lower(s.standard_name)=lower(res.extracted_standard_name))
+         AND (s.tenant_id IS NULL OR s.tenant_id=:tenant_id)
         WHERE res.tenant_id=:tenant_id AND res.project_id=:project_id
           AND res.review_status IN ('accepted','edited','approved','confirmed')
           AND res.include_in_adoption_stats=true
@@ -147,7 +149,9 @@ def _generate_topics(db: Session, tenant_id: str, project_id: str, analyzed: int
                jsonb_agg(DISTINCT jsonb_build_object('peer_report_id', ret.peer_report_id::text, 'source_type', 'peer_report_topic', 'item_code', ret.mapped_topic_code)) AS sources
         FROM report_extracted_topics ret
         JOIN peer_report_files pr ON pr.tenant_id=ret.tenant_id AND pr.project_id=ret.project_id AND pr.peer_report_id=ret.peer_report_id
-        LEFT JOIN esg_topics t ON t.topic_code=ret.mapped_topic_code
+        LEFT JOIN esg_topics t
+          ON t.topic_code=ret.mapped_topic_code
+         AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id)
         LEFT JOIN LATERAL (SELECT count(*) AS financial_count, count(*) AS impact_count) materiality_counts ON true
         WHERE ret.tenant_id=:tenant_id AND ret.project_id=:project_id AND ret.mapped_topic_code IS NOT NULL
           AND ret.review_status IN ('accepted','edited','approved','confirmed')
@@ -244,7 +248,8 @@ def confirm_standards(project_id: str, payload: ProjectStandardsConfirmRequest, 
           ORDER BY effective_date DESC NULLS LAST LIMIT 1
         ) sv ON true
         WHERE s.standard_code = ANY(:codes)
-    """), {"codes": payload.selected_standard_codes}).mappings().all()
+          AND (s.tenant_id IS NULL OR s.tenant_id=:tenant_id)
+    """), {"codes": payload.selected_standard_codes, "tenant_id": user["current_tenant_id"]}).mappings().all()
     if len(rows) != len(set(payload.selected_standard_codes)):
         raise ApiError(400, "PROJECT_STANDARD_UNKNOWN", "Selected standard contains unknown code")
     for row in rows:
@@ -270,7 +275,9 @@ def accept_topics(project_id: str, payload: AcceptTopicsRequest, request: Reques
         SELECT pr.recommendation_id::text, pr.item_code, pr.item_name, pr.adoption_rate, pr.recommendation_level,
                pr.financial_materiality_distribution, pr.impact_materiality_distribution, t.topic_id::text, t.topic_category::text
         FROM project_recommendations pr
-        LEFT JOIN esg_topics t ON t.topic_code=pr.item_code
+        LEFT JOIN esg_topics t
+          ON t.topic_code=pr.item_code
+         AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id)
         WHERE pr.tenant_id=:tenant_id AND pr.project_id=:project_id AND pr.recommendation_type='topic'
           AND pr.recommendation_id = ANY(:ids)
     """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "ids": payload.recommendation_ids}).mappings().all()
@@ -290,10 +297,10 @@ def accept_topics(project_id: str, payload: AcceptTopicsRequest, request: Reques
         metrics = db.execute(text("""
             SELECT m.metric_id::text, m.metric_code, m.metric_name, m.metric_type::text, m.data_type::text, m.default_unit, tmm.is_required
             FROM topic_metric_maps tmm
-            JOIN esg_topics t ON t.topic_id=tmm.topic_id
-            JOIN esg_metrics m ON m.metric_id=tmm.metric_id
+            JOIN esg_topics t ON t.topic_id=tmm.topic_id AND (t.tenant_id IS NULL OR t.tenant_id=:tenant_id)
+            JOIN esg_metrics m ON m.metric_id=tmm.metric_id AND (m.tenant_id IS NULL OR m.tenant_id=:tenant_id)
             WHERE t.topic_code=:topic_code AND tmm.default_selected=true
-        """), {"topic_code": row["item_code"]}).mappings().all()
+        """), {"topic_code": row["item_code"], "tenant_id": user["current_tenant_id"]}).mappings().all()
         for metric in metrics:
             snapshot = {"metric_code": metric["metric_code"], "metric_name": metric["metric_name"]}
             db.execute(text("""
