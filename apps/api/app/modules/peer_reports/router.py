@@ -38,6 +38,20 @@ class ParseOptionsRequest(BaseModel):
     parser_mode: str = "mock"
 
 
+class ParseResultPatchRequest(BaseModel):
+    object_type: str = Field(pattern="^(standard|topic|metric|case)$")
+    review_status: str = Field(pattern="^(pending|accepted|edited|rejected|ignored)$")
+    mapped_standard_code: str | None = None
+    mapped_standard_name: str | None = None
+    mapped_topic_code: str | None = None
+    mapped_topic_name: str | None = None
+    mapped_metric_code: str | None = None
+    mapped_metric_name: str | None = None
+    financial_materiality: str | None = None
+    impact_materiality: str | None = None
+    review_note: str | None = None
+
+
 def validate_peer_report_upload(file_name: str, mime_type: str | None, file_size: int | None) -> None:
     suffix = PurePosixPath(file_name).suffix.lower()
     if suffix not in ALLOWED_PEER_REPORT_EXTENSIONS or mime_type not in ALLOWED_PEER_REPORT_MIME_TYPES:
@@ -379,3 +393,168 @@ def get_job(job_id: str, request: Request, db: Session = Depends(get_db), user: 
         db.commit()
         raise ApiError(403, "AUTH_FORBIDDEN", "Access denied")
     return ok(_job_payload(dict(row)), request_id=request.state.request_id)
+
+
+def _result_collection_payload(rows, *, object_type: str, id_column: str) -> list[dict]:
+    items = []
+    for row in rows:
+        item = dict(row)
+        item["result_id"] = item[id_column]
+        item["object_type"] = object_type
+        items.append(item)
+    return items
+
+
+def _get_parse_result_collections(db: Session, *, tenant_id: str, project_id: str, peer_report_id: str) -> dict:
+    standards = db.execute(text("""
+        SELECT extracted_standard_id::text, peer_report_id::text, extracted_standard_name, mapped_standard_code,
+               mapped_standard_name, standard_version, adoption_type, explicit_statement, include_in_adoption_stats,
+               confidence, source_references, review_status::text, reviewed_by::text, reviewed_at, review_note, created_at
+        FROM report_extracted_standards
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
+        ORDER BY created_at ASC
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id}).mappings().all()
+    topics = db.execute(text("""
+        SELECT extracted_topic_id::text, peer_report_id::text, original_topic_name, mapped_topic_code, mapped_topic_name,
+               topic_category::text, is_material_topic, financial_materiality::text, impact_materiality::text,
+               double_materiality_result::text, confidence, source_references, include_in_topic_stats,
+               review_status::text, reviewed_by::text, reviewed_at, review_note, created_at
+        FROM report_extracted_topics
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
+        ORDER BY created_at ASC
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id}).mappings().all()
+    metrics = db.execute(text("""
+        SELECT extracted_metric_id::text, peer_report_id::text, original_metric_name, mapped_metric_code, mapped_metric_name,
+               related_topic_code, metric_type::text, data_type::text, numeric_value, text_value, unit, reporting_period,
+               organizational_boundary, is_table_data, table_title, confidence, source_references, review_status::text, created_at
+        FROM report_extracted_metrics
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
+        ORDER BY created_at ASC
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id}).mappings().all()
+    cases = db.execute(text("""
+        SELECT extracted_case_id::text, peer_report_id::text, case_title, case_type, related_topic_code, case_summary,
+               case_result, usable_as_peer_reference, caution, confidence, source_references, review_status::text, created_at
+        FROM report_extracted_cases
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
+        ORDER BY created_at ASC
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id}).mappings().all()
+    return {
+        "standards": _result_collection_payload(standards, object_type="standard", id_column="extracted_standard_id"),
+        "topics": _result_collection_payload(topics, object_type="topic", id_column="extracted_topic_id"),
+        "metrics": _result_collection_payload(metrics, object_type="metric", id_column="extracted_metric_id"),
+        "cases": _result_collection_payload(cases, object_type="case", id_column="extracted_case_id"),
+    }
+
+
+@router.get("/projects/{project_id}/peer-reports/{peer_report_id}/parse-result")
+def get_peer_report_parse_result(project_id: str, peer_report_id: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:read"))):
+    _authorize_project(request, db, user, project_id)
+    report = _get_peer_report(db, user["current_tenant_id"], project_id, peer_report_id)
+    if not report:
+        raise ApiError(404, "PEER_REPORT_NOT_FOUND", "Peer report not found")
+    collections = _get_parse_result_collections(db, tenant_id=user["current_tenant_id"], project_id=project_id, peer_report_id=peer_report_id)
+    issues = db.execute(text("""
+        SELECT ai_review_issue_id::text, object_type, object_id::text, issue_type, severity::text, location,
+               description, suggested_fix, must_fix, source_references, review_status::text, created_at
+        FROM ai_review_issues
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND object_id=:peer_report_id
+        ORDER BY created_at ASC
+    """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "peer_report_id": peer_report_id}).mappings().all()
+    return ok({"peer_report_id": peer_report_id, "parse_status": report["parse_status"], "ai_review_status": report.get("ai_review_status"), "result": {**collections, "ai_review_issues": [dict(row) for row in issues]}}, request_id=request.state.request_id)
+
+
+def _patch_standard_result(db: Session, *, tenant_id: str, project_id: str, peer_report_id: str, result_id: str, payload: ParseResultPatchRequest, user_id: str) -> int:
+    return db.execute(text("""
+        UPDATE report_extracted_standards
+        SET mapped_standard_code=COALESCE(:mapped_standard_code, mapped_standard_code),
+            mapped_standard_name=COALESCE(:mapped_standard_name, mapped_standard_name),
+            review_status=:review_status,
+            include_in_adoption_stats=(:review_status IN ('accepted', 'edited')),
+            reviewed_by=:reviewed_by,
+            reviewed_at=now(),
+            review_note=COALESCE(:review_note, review_note)
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND extracted_standard_id=:result_id
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id, "result_id": result_id, "reviewed_by": user_id, **payload.model_dump()}).rowcount
+
+
+def _patch_topic_result(db: Session, *, tenant_id: str, project_id: str, peer_report_id: str, result_id: str, payload: ParseResultPatchRequest, user_id: str) -> int:
+    return db.execute(text("""
+        UPDATE report_extracted_topics
+        SET mapped_topic_code=COALESCE(:mapped_topic_code, mapped_topic_code),
+            mapped_topic_name=COALESCE(:mapped_topic_name, mapped_topic_name),
+            financial_materiality=COALESCE(CAST(:financial_materiality AS materiality_level), financial_materiality),
+            impact_materiality=COALESCE(CAST(:impact_materiality AS materiality_level), impact_materiality),
+            review_status=:review_status,
+            include_in_topic_stats=(:review_status IN ('accepted', 'edited')),
+            reviewed_by=:reviewed_by,
+            reviewed_at=now(),
+            review_note=COALESCE(:review_note, review_note)
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND extracted_topic_id=:result_id
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id, "result_id": result_id, "reviewed_by": user_id, **payload.model_dump()}).rowcount
+
+
+def _patch_metric_result(db: Session, *, tenant_id: str, project_id: str, peer_report_id: str, result_id: str, payload: ParseResultPatchRequest) -> int:
+    return db.execute(text("""
+        UPDATE report_extracted_metrics
+        SET mapped_metric_code=COALESCE(:mapped_metric_code, mapped_metric_code),
+            mapped_metric_name=COALESCE(:mapped_metric_name, mapped_metric_name),
+            related_topic_code=COALESCE(:mapped_topic_code, related_topic_code),
+            review_status=:review_status
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND extracted_metric_id=:result_id
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id, "result_id": result_id, **payload.model_dump()}).rowcount
+
+
+def _patch_case_result(db: Session, *, tenant_id: str, project_id: str, peer_report_id: str, result_id: str, payload: ParseResultPatchRequest) -> int:
+    return db.execute(text("""
+        UPDATE report_extracted_cases
+        SET related_topic_code=COALESCE(:mapped_topic_code, related_topic_code),
+            review_status=:review_status,
+            usable_as_peer_reference=(:review_status IN ('accepted', 'edited'))
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND extracted_case_id=:result_id
+    """), {"tenant_id": tenant_id, "project_id": project_id, "peer_report_id": peer_report_id, "result_id": result_id, **payload.model_dump()}).rowcount
+
+
+@router.patch("/projects/{project_id}/peer-reports/{peer_report_id}/parse-result/{result_id}")
+def patch_peer_report_parse_result(project_id: str, peer_report_id: str, result_id: str, payload: ParseResultPatchRequest, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:update"))):
+    project = _authorize_project(request, db, user, project_id)
+    report = _get_peer_report(db, user["current_tenant_id"], project_id, peer_report_id)
+    if not report:
+        raise ApiError(404, "PEER_REPORT_NOT_FOUND", "Peer report not found")
+    if payload.object_type == "standard":
+        rowcount = _patch_standard_result(db, tenant_id=user["current_tenant_id"], project_id=project_id, peer_report_id=peer_report_id, result_id=result_id, payload=payload, user_id=user["user_id"])
+    elif payload.object_type == "topic":
+        rowcount = _patch_topic_result(db, tenant_id=user["current_tenant_id"], project_id=project_id, peer_report_id=peer_report_id, result_id=result_id, payload=payload, user_id=user["user_id"])
+    elif payload.object_type == "metric":
+        rowcount = _patch_metric_result(db, tenant_id=user["current_tenant_id"], project_id=project_id, peer_report_id=peer_report_id, result_id=result_id, payload=payload)
+    else:
+        rowcount = _patch_case_result(db, tenant_id=user["current_tenant_id"], project_id=project_id, peer_report_id=peer_report_id, result_id=result_id, payload=payload)
+    if rowcount != 1:
+        raise ApiError(404, "PARSE_RESULT_NOT_FOUND", "Parse result not found")
+    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="peer_report.parse_result_reviewed", object_type=payload.object_type, object_id=result_id, description="人工修正同行报告解析结果")
+    db.commit()
+    return ok({"result_id": result_id, "object_type": payload.object_type, "review_status": payload.review_status}, request_id=request.state.request_id)
+
+
+@router.post("/projects/{project_id}/peer-reports/{peer_report_id}/approve-and-store")
+def approve_peer_report_parse_result(project_id: str, peer_report_id: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:update"))):
+    project = _authorize_project(request, db, user, project_id)
+    report = _get_peer_report(db, user["current_tenant_id"], project_id, peer_report_id)
+    if not report:
+        raise ApiError(404, "PEER_REPORT_NOT_FOUND", "Peer report not found")
+    pending_count = db.execute(text("""
+        SELECT
+          (SELECT count(*) FROM report_extracted_standards WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND review_status='pending') +
+          (SELECT count(*) FROM report_extracted_topics WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND review_status='pending') +
+          (SELECT count(*) FROM report_extracted_metrics WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND review_status='pending') +
+          (SELECT count(*) FROM report_extracted_cases WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id AND review_status='pending')
+    """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "peer_report_id": peer_report_id}).scalar_one()
+    if pending_count:
+        raise ApiError(400, "PARSE_RESULT_REVIEW_PENDING", "All parse results must be reviewed before approval")
+    db.execute(text("""
+        UPDATE peer_report_files
+        SET parse_status='approved', ai_review_status='approved', approved_by=:approved_by, approved_at=now(), stored_at=now(), updated_at=now()
+        WHERE tenant_id=:tenant_id AND project_id=:project_id AND peer_report_id=:peer_report_id
+    """), {"tenant_id": user["current_tenant_id"], "project_id": project_id, "peer_report_id": peer_report_id, "approved_by": user["user_id"]})
+    write_audit_log(db, tenant_id=user["current_tenant_id"], enterprise_id=project["enterprise_id"], project_id=project_id, user_id=user["user_id"], user_name=user["name"], action_type="peer_report.approved_and_stored", object_type="peer_report_files", object_id=peer_report_id, description="审核通过同行报告解析结果并入库")
+    db.commit()
+    return ok({"peer_report_id": peer_report_id, "parse_status": "approved", "ai_review_status": "approved"}, request_id=request.state.request_id)
