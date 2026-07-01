@@ -67,8 +67,6 @@ export function WorkbenchPage() {
   return (
     <main style={{ padding: 24 }}>
       <Card extra={<Space><Link to="/enterprise-projects">企业与项目</Link><Link to="/peer-analysis">GICS与同行池</Link><Link to="/peer-reports">同行报告</Link>{canReadStandardLibrary && <Link to="/standard-library">标准库</Link>}<Button onClick={handleLogout}>退出登录</Button></Space>}>
-      <Card extra={<Space><Link to="/enterprise-projects">企业与项目</Link><Link to="/standard-library">标准库</Link><Button onClick={handleLogout}>退出登录</Button></Space>}>
-      <Card extra={<Space><Link to="/enterprise-projects">企业与项目</Link>{canReadStandardLibrary && <Link to="/standard-library">标准库</Link>}<Button onClick={handleLogout}>退出登录</Button></Space>}>
         <Typography.Title level={2}>工作台</Typography.Title>
         {currentUser && (
           <Descriptions bordered column={1}>
