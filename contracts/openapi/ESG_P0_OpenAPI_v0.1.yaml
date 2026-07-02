@@ -3545,6 +3545,67 @@ paths:
           type: string
       security:
       - bearerAuth: []
+  /projects/{project_id}/esg-data-records/{data_record_id}/report-reference-status:
+    parameters:
+    - name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: data_record_id
+      in: path
+      required: true
+      schema:
+        type: string
+    patch:
+      tags:
+      - ESG数据
+      summary: 更新ESG数据报告引用状态
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EsgDataReferenceStatusUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EsgDataReferenceStatusUpdateResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearerAuth: []
   /projects/{project_id}/esg-data-records/{data_record_id}/sources:
     parameters:
     - name: project_id
@@ -6579,6 +6640,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EsgDataRecord'
+    EsgDataReferenceStatusUpdateRequest:
+      type: object
+      required:
+      - report_reference_status
+      properties:
+        report_reference_status:
+          type: string
+          enum:
+          - not_referenced
+          - referenced
+          - needs_review
+          - superseded
+    EsgDataReferenceStatusUpdateResponse:
+      type: object
+      properties:
+        data_record_id:
+          type: string
+        report_reference_status:
+          type: string
     SourceListResponse:
       type: object
       properties:

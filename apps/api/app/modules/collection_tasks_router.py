@@ -12,6 +12,7 @@ from app.core.response import ok
 from app.db.session import get_db
 from app.modules.audit.service import write_audit_log
 from app.modules.auth.dependencies import has_permission, require_permission
+from app.modules.esg_data_router import promote_submission_to_esg_data_records
 from app.modules.projects.router import _authorize_project
 
 router = APIRouter(prefix="/api/v1", tags=["任务分配", "部门采集", "部门审核"])
@@ -308,11 +309,22 @@ def review_task(task_id: str, payload: ReviewSubmitRequest, request: Request, db
     if not submission_id:
         raise ApiError(400, "REVIEW_SUBMISSION_REQUIRED", "Submitted data is missing")
     review_status = "approved" if payload.review_action == "approve" else "returned"
+    promoted_count = 0
     db.execute(text("""
         INSERT INTO task_reviews (tenant_id, project_id, task_id, submission_id, reviewer_user_id, review_action, review_note, return_items, confirmed_validation_issue_ids)
         VALUES (:tenant_id, :project_id, :task_id, :submission_id, :reviewer_user_id, :review_action, :review_note, :return_items, :confirmed_validation_issue_ids)
     """), {"tenant_id": _tenant_id(user), "project_id": task["project_id"], "task_id": task_id, "submission_id": submission_id, "reviewer_user_id": user["user_id"], "review_action": payload.review_action, "review_note": payload.review_note, "return_items": payload.return_items, "confirmed_validation_issue_ids": payload.confirmed_validation_issue_ids})
     db.execute(text("UPDATE task_submissions SET task_status=:status, updated_at=now() WHERE tenant_id=:tenant_id AND submission_id=:submission_id"), {"tenant_id": _tenant_id(user), "submission_id": submission_id, "status": review_status})
     db.execute(text("UPDATE collection_tasks SET task_status=:status, reviewed_at=now(), updated_at=now() WHERE tenant_id=:tenant_id AND task_id=:task_id"), {"tenant_id": _tenant_id(user), "task_id": task_id, "status": review_status})
+    if review_status == "approved":
+        promoted_count = promote_submission_to_esg_data_records(
+            db,
+            tenant_id=_tenant_id(user),
+            enterprise_id=task["enterprise_id"],
+            project_id=task["project_id"],
+            task_id=task_id,
+            submission_id=submission_id,
+        )
+    write_audit_log(db, tenant_id=_tenant_id(user), enterprise_id=task["enterprise_id"], project_id=task["project_id"], user_id=user["user_id"], user_name=user["name"], action_type="collection_task.reviewed", object_type="collection_tasks", object_id=task_id, description=f"审核采集任务：{payload.review_action}", ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
     db.commit()
-    return ok({"reviewed": True, "review_status": review_status}, request_id=request.state.request_id)
+    return ok({"reviewed": True, "review_status": review_status, "promoted_data_record_count": promoted_count}, request_id=request.state.request_id)
