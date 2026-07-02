@@ -141,7 +141,7 @@ def list_esg_data_records(
 
 @router.get("/{data_record_id}/sources")
 def esg_data_record_sources(project_id: str, data_record_id: str, request: Request, db: Session = Depends(get_db), user: dict = Depends(require_permission("project:read"))):
-    _authorize_project(request, db, user, project_id)
+    project = _authorize_project(request, db, user, project_id)
     row = db.execute(text("""
         SELECT data_record_id::text, source_task_id::text, source_submission_id::text,
                source_submission_item_id::text, source_file_ids, topic_name, metric_name
@@ -151,11 +151,19 @@ def esg_data_record_sources(project_id: str, data_record_id: str, request: Reque
     if not row:
         raise ApiError(404, "ESG_DATA_RECORD_NOT_FOUND", "ESG data record not found")
     file_rows = db.execute(text("""
-        SELECT file_id::text, original_filename, mime_type, business_type, created_at
+        SELECT file_id::text, file_name AS original_filename, mime_type, business_type, uploaded_at AS created_at
         FROM file_objects
-        WHERE tenant_id=:tenant_id AND file_id = ANY(:file_ids)
-        ORDER BY created_at DESC
-    """), {"tenant_id": _tenant_id(user), "file_ids": row["source_file_ids"] or []}).mappings().all()
+        WHERE tenant_id=:tenant_id
+          AND enterprise_id=:enterprise_id
+          AND project_id=:project_id
+          AND file_id = ANY(:file_ids)
+        ORDER BY uploaded_at DESC
+    """), {
+        "tenant_id": _tenant_id(user),
+        "enterprise_id": project["enterprise_id"],
+        "project_id": project_id,
+        "file_ids": row["source_file_ids"] or [],
+    }).mappings().all()
     return ok({"sources": [{"source_type": "collection_task", **dict(row), "files": [dict(r) for r in file_rows]}]}, request_id=request.state.request_id)
 
 
