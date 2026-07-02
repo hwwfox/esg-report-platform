@@ -118,12 +118,13 @@ deploy/
 
 1. `AGENTS.md`
 2. `README.md`
-3. `docs/architecture/TECH_STACK_DECISION.md`
-4. `docs/dev-tasks/MVP_BUILD_ORDER.md`
-5. 当前任务卡，例如 `docs/dev-tasks/000-sprint-0-bootstrap.md`
-6. 如涉及接口，阅读 `contracts/openapi/ESG_P0_OpenAPI_v0.1.yaml`
-7. 如涉及数据库，阅读 `db/ddl/ESG_PostgreSQL_DDL_v0.1.sql`
-8. 如涉及AI输出，阅读 `contracts/schemas/` 和 `ai/prompts/`
+3. `CODEX.md`
+4. `docs/architecture/TECH_STACK_DECISION.md`
+5. `docs/dev-tasks/MVP_BUILD_ORDER.md`
+6. 当前任务卡，例如 `docs/dev-tasks/000-sprint-0-bootstrap.md`
+7. 如涉及接口，阅读 `contracts/openapi/ESG_P0_OpenAPI_v0.1.yaml`
+8. 如涉及数据库，阅读 `db/ddl/ESG_PostgreSQL_DDL_v0.1.sql`
+9. 如涉及AI输出，阅读 `contracts/schemas/` 和 `ai/prompts/`
 
 ---
 
