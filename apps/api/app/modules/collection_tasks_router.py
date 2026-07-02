@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.modules.audit.service import write_audit_log
 from app.modules.auth.dependencies import has_permission, require_permission
 from app.modules.projects.router import _authorize_project
+from app.modules.esg_data_router import create_esg_data_records_for_submission
 
 router = APIRouter(prefix="/api/v1", tags=["任务分配", "部门采集", "部门审核"])
 
@@ -314,5 +315,8 @@ def review_task(task_id: str, payload: ReviewSubmitRequest, request: Request, db
     """), {"tenant_id": _tenant_id(user), "project_id": task["project_id"], "task_id": task_id, "submission_id": submission_id, "reviewer_user_id": user["user_id"], "review_action": payload.review_action, "review_note": payload.review_note, "return_items": payload.return_items, "confirmed_validation_issue_ids": payload.confirmed_validation_issue_ids})
     db.execute(text("UPDATE task_submissions SET task_status=:status, updated_at=now() WHERE tenant_id=:tenant_id AND submission_id=:submission_id"), {"tenant_id": _tenant_id(user), "submission_id": submission_id, "status": review_status})
     db.execute(text("UPDATE collection_tasks SET task_status=:status, reviewed_at=now(), updated_at=now() WHERE tenant_id=:tenant_id AND task_id=:task_id"), {"tenant_id": _tenant_id(user), "task_id": task_id, "status": review_status})
+    created_records = 0
+    if review_status == "approved":
+        created_records = create_esg_data_records_for_submission(db, tenant_id=_tenant_id(user), enterprise_id=task["enterprise_id"], project_id=task["project_id"], task_id=task_id, submission_id=submission_id)
     db.commit()
-    return ok({"reviewed": True, "review_status": review_status}, request_id=request.state.request_id)
+    return ok({"reviewed": True, "review_status": review_status, "esg_data_record_count": created_records}, request_id=request.state.request_id)

@@ -14,6 +14,7 @@ from app.modules.peer.router import router as peer_router
 from app.modules.peer_reports.router import router as peer_reports_router
 from app.modules.recommendations_router import router as recommendations_router
 from app.modules.collection_tasks_router import router as collection_tasks_router
+from app.modules.esg_data_router import router as esg_data_router
 
 settings = get_settings()
 
@@ -28,6 +29,7 @@ app.include_router(peer_router)
 app.include_router(peer_reports_router)
 app.include_router(recommendations_router)
 app.include_router(collection_tasks_router)
+app.include_router(esg_data_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_allowed_origins.split(",")],
